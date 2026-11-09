@@ -12,6 +12,7 @@ from discord.ext import commands
 
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory
 from werkzeug.utils import secure_filename
+
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
@@ -43,7 +44,10 @@ JOBS_LIST = {
 }
 
 
+# FLASK SETUP
+
 app = Flask(__name__)
+
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 
@@ -59,28 +63,44 @@ if not mongo_uri:
 
 client = MongoClient(
     mongo_uri,
-    serverSelectionTimeoutMS=5000
+    serverSelectionTimeoutMS=20000,
+    connectTimeoutMS=20000,
+    tls=True
 )
-
-client.admin.command("ping")
 
 db = client["economy_bot_database"]
 
 shop_collection = db["shop_items"]
 economy_collection = db["player_profiles"]
 
-economy_collection.create_index("user_id", unique=True)
+try:
+    client.admin.command("ping")
 
-print("MongoDB Atlas connected successfully!")
+    economy_collection.create_index(
+        "user_id",
+        unique=True
+    )
+
+    print("MongoDB Atlas connected successfully!")
+
+except PyMongoError as e:
+    print("MongoDB connection failed:", e)
+    raise
 
 
 # DATABASE FUNCTIONS
 
 def get_shop_items():
     try:
-        return list(shop_collection.find({}, {"_id": 0}))
+        return list(
+            shop_collection.find(
+                {},
+                {"_id": 0}
+            )
+        )
+
     except PyMongoError as e:
-        print("Error fetching shop:", e)
+        print("Shop loading error:", e)
         return []
 
 
@@ -88,8 +108,9 @@ def save_shop_item(item):
     try:
         shop_collection.insert_one(item)
         return True
+
     except PyMongoError as e:
-        print("Error saving shop item:", e)
+        print("Shop saving error:", e)
         return False
 
 
@@ -112,28 +133,28 @@ def get_profile(user_id):
             upsert=True
         )
 
-        profile = economy_collection.find_one({"user_id": uid})
-
-        if not profile:
-            return default_profile
+        profile = economy_collection.find_one(
+            {"user_id": uid}
+        )
 
         updates = {}
 
-        for key in ["wallet", "bank", "inventory", "job", "last_work"]:
+        for key, value in default_profile.items():
             if key not in profile:
-                updates[key] = default_profile[key]
+                updates[key] = value
 
         if updates:
             economy_collection.update_one(
                 {"user_id": uid},
                 {"$set": updates}
             )
+
             profile.update(updates)
 
         return profile
 
     except PyMongoError as e:
-        print("Error getting profile:", e)
+        print("Profile loading error:", e)
         return default_profile
 
 
@@ -143,7 +164,7 @@ def update_balance(user_id, wallet_change=0, bank_change=0):
     try:
         get_profile(user_id)
 
-        economy_collection.update_one(
+        result = economy_collection.update_one(
             {"user_id": uid},
             {
                 "$inc": {
@@ -153,15 +174,21 @@ def update_balance(user_id, wallet_change=0, bank_change=0):
             }
         )
 
-        return True
+        return result.matched_count > 0
 
     except PyMongoError as e:
-        print("Error updating balance:", e)
+        print("Balance update error:", e)
         return False
 
 
 def transfer_balance(user_id, amount, from_account, to_account):
     uid = str(user_id)
+
+    if amount <= 0:
+        return False
+
+    if from_account == to_account:
+        return False
 
     try:
         get_profile(user_id)
@@ -182,7 +209,7 @@ def transfer_balance(user_id, amount, from_account, to_account):
         return result.modified_count > 0
 
     except PyMongoError as e:
-        print("Error transferring balance:", e)
+        print("Transfer error:", e)
         return False
 
 
@@ -190,15 +217,31 @@ def set_user_job(user_id, job_name):
     try:
         get_profile(user_id)
 
-        economy_collection.update_one(
+        result = economy_collection.update_one(
             {"user_id": str(user_id)},
             {"$set": {"job": job_name}}
         )
 
-        return True
+        return result.matched_count > 0
 
     except PyMongoError as e:
-        print("Error setting job:", e)
+        print("Job update error:", e)
+        return False
+
+
+def add_inventory_item(user_id, item_name):
+    try:
+        get_profile(user_id)
+
+        result = economy_collection.update_one(
+            {"user_id": str(user_id)},
+            {"$push": {"inventory": item_name}}
+        )
+
+        return result.modified_count > 0
+
+    except PyMongoError as e:
+        print("Inventory update error:", e)
         return False
 
 
@@ -209,6 +252,7 @@ def index():
     shop_items = get_shop_items()
 
     if request.method == "POST":
+
         name = request.form.get("name", "").strip()
         price = request.form.get("price", "").strip()
 
@@ -222,10 +266,18 @@ def index():
                 return redirect(url_for("index"))
 
             if image_file and image_file.filename:
-                original_name = secure_filename(image_file.filename)
+
+                original_name = secure_filename(
+                    image_file.filename
+                )
+
+                if "." not in original_name:
+                    return redirect(url_for("index"))
+
                 extension = original_name.rsplit(".", 1)[-1].lower()
 
                 if extension in ALLOWED_EXTENSIONS:
+
                     filename = f"{uuid.uuid4().hex}.{extension}"
 
                     image_file.save(
@@ -282,7 +334,7 @@ class EconomyBot(commands.Bot):
 
     async def setup_hook(self):
         await self.tree.sync()
-        print("Discord commands synchronized.")
+        print("Discord commands synchronized successfully.")
 
 
 bot = EconomyBot()
@@ -307,6 +359,7 @@ async def bal(
     member: discord.Member = None
 ):
     target = member or interaction.user
+
     profile = get_profile(target.id)
 
     wallet = profile.get("wallet", 0)
@@ -335,7 +388,9 @@ async def bal(
         inline=False
     )
 
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(
+        embed=embed
+    )
 
 
 # DEPOSIT
@@ -352,13 +407,16 @@ async def deposit(
     amount: str
 ):
     profile = get_profile(interaction.user.id)
+
     wallet = profile.get("wallet", 0)
 
     if amount.lower() == "all":
         target_amount = wallet
+
     else:
         try:
             target_amount = int(amount)
+
         except ValueError:
             return await interaction.response.send_message(
                 "❌ Enter a valid number or 'all'.",
@@ -371,12 +429,14 @@ async def deposit(
             ephemeral=True
         )
 
-    if not transfer_balance(
+    success = transfer_balance(
         interaction.user.id,
         target_amount,
         "wallet",
         "bank"
-    ):
+    )
+
+    if not success:
         return await interaction.response.send_message(
             "❌ You do not have enough coins in your wallet.",
             ephemeral=True
@@ -401,13 +461,16 @@ async def withdraw(
     amount: str
 ):
     profile = get_profile(interaction.user.id)
+
     bank = profile.get("bank", 0)
 
     if amount.lower() == "all":
         target_amount = bank
+
     else:
         try:
             target_amount = int(amount)
+
         except ValueError:
             return await interaction.response.send_message(
                 "❌ Enter a valid number or 'all'.",
@@ -420,12 +483,14 @@ async def withdraw(
             ephemeral=True
         )
 
-    if not transfer_balance(
+    success = transfer_balance(
         interaction.user.id,
         target_amount,
         "bank",
         "wallet"
-    ):
+    )
+
+    if not success:
         return await interaction.response.send_message(
             "❌ You do not have enough coins in your bank.",
             ephemeral=True
@@ -458,24 +523,42 @@ async def slots(
             ephemeral=True
         )
 
-    if not transfer_balance(
-        interaction.user.id,
-        bet,
-        "wallet",
-        "wallet"
-    ):
+    try:
+        result = economy_collection.update_one(
+            {
+                "user_id": str(interaction.user.id),
+                "wallet": {"$gte": bet}
+            },
+            {
+                "$inc": {"wallet": -bet}
+            }
+        )
+
+        if result.modified_count == 0:
+            return await interaction.response.send_message(
+                "❌ You do not have enough coins.",
+                ephemeral=True
+            )
+
+    except PyMongoError as e:
+        print("Slots database error:", e)
+
         return await interaction.response.send_message(
-            "❌ You do not have enough coins.",
+            "❌ Database error. Please try again.",
             ephemeral=True
         )
 
     emojis = ["🍒", "🍇", "🍊", "💎", "🎰"]
 
-    slot1, slot2, slot3 = random.choices(emojis, k=3)
+    slot1, slot2, slot3 = random.choices(
+        emojis,
+        k=3
+    )
 
     slot_display = f"[ {slot1} | {slot2} | {slot3} ]"
 
     if slot1 == slot2 == slot3:
+
         winnings = bet * 3
 
         update_balance(
@@ -488,6 +571,7 @@ async def slots(
         )
 
     elif slot1 == slot2 or slot2 == slot3 or slot1 == slot3:
+
         winnings = bet
 
         update_balance(
@@ -500,6 +584,7 @@ async def slots(
         )
 
     else:
+
         await interaction.response.send_message(
             f"{slot_display}\n😢 **You lost!** You lost **{bet} coins**."
         )
@@ -519,9 +604,11 @@ async def jobs(
     join_job: str = None
 ):
     profile = get_profile(interaction.user.id)
+
     current_job = profile.get("job", "beggar")
 
     if join_job:
+
         target_job = join_job.strip().lower()
 
         if target_job not in JOBS_LIST:
@@ -530,7 +617,14 @@ async def jobs(
                 ephemeral=True
             )
 
-        set_user_job(interaction.user.id, target_job)
+        if not set_user_job(
+            interaction.user.id,
+            target_job
+        ):
+            return await interaction.response.send_message(
+                "❌ Could not update your job. Try again.",
+                ephemeral=True
+            )
 
         return await interaction.response.send_message(
             f"💼 You are now working as **{target_job.capitalize()}**!"
@@ -538,11 +632,15 @@ async def jobs(
 
     embed = discord.Embed(
         title="💼 Job Market Dashboard",
-        description=f"Your Active Position: **{current_job.capitalize()}**\n\nUse `/jobs join_job:[Name]` to select a job.",
+        description=(
+            f"Your Active Position: **{current_job.capitalize()}**\n\n"
+            "Use `/jobs join_job:[Name]` to select a job."
+        ),
         color=discord.Color.blue()
     )
 
     for job_name, data in JOBS_LIST.items():
+
         embed.add_field(
             name=f"🛠️ {job_name.capitalize()}",
             value=(
@@ -553,7 +651,9 @@ async def jobs(
             inline=False
         )
 
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(
+        embed=embed
+    )
 
 
 # WORK
@@ -563,6 +663,7 @@ async def jobs(
     description="Work at your selected job to earn coins."
 )
 async def work(interaction: discord.Interaction):
+
     profile = get_profile(interaction.user.id)
 
     current_job = profile.get("job", "beggar")
@@ -577,6 +678,7 @@ async def work(interaction: discord.Interaction):
     elapsed = current_time - last_work
 
     if elapsed < job_info["cooldown"]:
+
         remaining = job_info["cooldown"] - elapsed
 
         return await interaction.response.send_message(
@@ -590,14 +692,19 @@ async def work(interaction: discord.Interaction):
     )
 
     try:
+
         result = economy_collection.update_one(
             {
                 "user_id": str(interaction.user.id),
                 "last_work": last_work
             },
             {
-                "$set": {"last_work": current_time},
-                "$inc": {"wallet": earnings}
+                "$set": {
+                    "last_work": current_time
+                },
+                "$inc": {
+                    "wallet": earnings
+                }
             }
         )
 
@@ -608,6 +715,7 @@ async def work(interaction: discord.Interaction):
             )
 
     except PyMongoError as e:
+
         print("Work error:", e)
 
         return await interaction.response.send_message(
@@ -627,6 +735,7 @@ async def work(interaction: discord.Interaction):
     description="Displays all available shop items."
 )
 async def shop(interaction: discord.Interaction):
+
     shop_items = get_shop_items()
 
     if not shop_items:
@@ -644,6 +753,7 @@ async def shop(interaction: discord.Interaction):
     last_image_url = None
 
     for item in shop_items:
+
         shop_list_text += (
             f"📦 **{item['name']}**\n"
             f"└ 💰 Cost: `{item['price']} coins`\n\n"
@@ -657,7 +767,9 @@ async def shop(interaction: discord.Interaction):
     if last_image_url:
         embed.set_thumbnail(url=last_image_url)
 
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(
+        embed=embed
+    )
 
 
 # BUY
@@ -692,6 +804,7 @@ async def buy(
     price = item["price"]
 
     try:
+
         get_profile(interaction.user.id)
 
         result = economy_collection.update_one(
@@ -700,8 +813,12 @@ async def buy(
                 "wallet": {"$gte": price}
             },
             {
-                "$inc": {"wallet": -price},
-                "$push": {"inventory": item["name"]}
+                "$inc": {
+                    "wallet": -price
+                },
+                "$push": {
+                    "inventory": item["name"]
+                }
             }
         )
 
@@ -712,6 +829,7 @@ async def buy(
             )
 
     except PyMongoError as e:
+
         print("Purchase error:", e)
 
         return await interaction.response.send_message(
@@ -741,6 +859,7 @@ async def inventory(
     target = member or interaction.user
 
     profile = get_profile(target.id)
+
     user_inventory = profile.get("inventory", [])
 
     if not user_inventory:
@@ -767,7 +886,9 @@ async def inventory(
         color=discord.Color.blue()
     )
 
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(
+        embed=embed
+    )
 
 
 # ADMIN ADD MONEY
@@ -786,6 +907,7 @@ async def addmoney(
     amount: int
 ):
     is_owner = interaction.user.id == OWNER_ID
+
     is_admin = (
         interaction.guild is not None
         and interaction.permissions.administrator
@@ -803,7 +925,10 @@ async def addmoney(
             ephemeral=True
         )
 
-    if not update_balance(member.id, wallet_change=amount):
+    if not update_balance(
+        member.id,
+        wallet_change=amount
+    ):
         return await interaction.response.send_message(
             "❌ Database error. Coins were not added.",
             ephemeral=True
@@ -821,34 +946,43 @@ async def on_app_command_error(
     interaction: discord.Interaction,
     error: app_commands.AppCommandError
 ):
+
     if isinstance(error, app_commands.CommandOnCooldown):
+
         message = (
             f"⏳ Slow down! Try again in "
             f"{error.retry_after:.2f} seconds."
         )
 
         if interaction.response.is_done():
+
             await interaction.followup.send(
                 message,
                 ephemeral=True
             )
+
         else:
+
             await interaction.response.send_message(
                 message,
                 ephemeral=True
             )
 
     else:
+
         print("Discord command error:", error)
 
         message = "❌ Something went wrong while running that command."
 
         if interaction.response.is_done():
+
             await interaction.followup.send(
                 message,
                 ephemeral=True
             )
+
         else:
+
             await interaction.response.send_message(
                 message,
                 ephemeral=True
@@ -858,16 +992,22 @@ async def on_app_command_error(
 # BACKGROUND BOT RUNNER
 
 def run_discord_bot():
+
     token = os.environ.get("DISCORD_TOKEN")
 
     if not token:
         print("DISCORD_TOKEN environment variable is missing.")
         return
 
-    asyncio.run(bot.start(token))
+    asyncio.run(
+        bot.start(token)
+    )
 
+
+# START APPLICATION
 
 if __name__ == "__main__":
+
     bot_thread = threading.Thread(
         target=run_discord_bot,
         daemon=True
@@ -875,7 +1015,9 @@ if __name__ == "__main__":
 
     bot_thread.start()
 
-    port = int(os.environ.get("PORT", 10000))
+    port = int(
+        os.environ.get("PORT", 10000)
+    )
 
     app.run(
         host="0.0.0.0",
