@@ -1,6 +1,7 @@
 import os
 import json
 import threading
+import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -82,16 +83,24 @@ async def shop(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 # --- ENGINE WORKSPACE THREAD RUNNERS ---
-def run_web():
-    # Render maps instances automatically via their environment ports
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+def run_discord_bot():
+    """Runs the live bot application framework safely inside a background thread loop."""
+    token = os.environ.get("DISCORD_TOKEN")
+    if not token:
+        print("❌ CRITICAL ERROR: 'DISCORD_TOKEN' environment variable is missing in Render settings!")
+        return
+        
+    # Create a fresh event loop specifically for the Discord bot thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(bot.start(token))
 
 if __name__ == "__main__":
-    # Launch web control engine in its own isolated background thread
-    web_thread = threading.Thread(target=run_web)
-    web_thread.daemon = True
-    web_thread.start()
+    # 1. Launch the Discord bot in a separate background thread
+    bot_thread = threading.Thread(target=run_discord_bot)
+    bot_thread.daemon = True
+    bot_thread.start()
     
-    # Run the live bot application framework inline
-    bot.run("MTUxMTY2MzA5NjczMTc5OTY0NA.G8zv64.sgKJpHFyvy2bkiQBl7TvkqSRfmNmblPr5VbZhw")
+    # 2. Run the Flask Web Server on the MAIN thread so Render detects it instantly
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
