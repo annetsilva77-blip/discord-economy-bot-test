@@ -197,6 +197,34 @@ async def withdraw(interaction: discord.Interaction, amount: str):
     update_balance(interaction.user.id, wallet_change=target_amount, bank_change=-target_amount)
     await interaction.response.send_message(f"📤 Successfully withdrew **{target_amount} coins** into your wallet!")
 
+@bot.tree.command(name="slots", description="Gamble your wallet coins away using a virtual slot machine.")
+@app_commands.describe(bet="The number of coins you want to gamble")
+@app_commands.checks.cooldown(1, 10.0)
+async def slots(interaction: discord.Interaction, bet: int):
+    profile = get_profile(interaction.user.id)
+    wallet = profile["wallet"]
+    
+    if bet <= 0:
+        return await interaction.response.send_message("❌ Bet must be higher than 0!", ephemeral=True)
+    if bet > wallet:
+        return await interaction.response.send_message("❌ You don't have enough money in your wallet to cover that bet.", ephemeral=True)
+        
+    emojis = ["🍒", "🍇", "🍊", "💎", "🎰"]
+    slot1, slot2, slot3 = random.choices(emojis, k=3)
+    slot_display = f"[ {slot1} | {slot2} | {slot3} ]"
+    
+    if slot1 == slot2 == slot3:
+        winnings = bet * 3
+        update_balance(interaction.user.id, wallet_change=winnings)
+        await interaction.response.send_message(f"{slot_display}\n🎉 **JACKPOT!** You won **{winnings} coins**!")
+    elif slot1 == slot2 or slot2 == slot3 or slot1 == slot3:
+        winnings = bet * 1
+        update_balance(interaction.user.id, wallet_change=winnings)
+        await interaction.response.send_message(f"{slot_display}\n🙂 **Match 2!** You won back your bet of **{winnings} coins**!")
+    else:
+        update_balance(interaction.user.id, wallet_change=-bet)
+        await interaction.response.send_message(f"{slot_display}\n😢 **You lost!** Deducted **{bet} coins** from your wallet.")
+
 # --- JOBS AND WORK SHIFT MODULE ---
 
 @bot.tree.command(name="jobs", description="Lists the employment market boards and lets you choose a career.")
@@ -208,31 +236,29 @@ async def jobs(interaction: discord.Interaction, join_job: str = None):
     if join_job:
         target_job = join_job.strip().lower()
         if target_job not in JOBS_LIST:
-            return await interaction.response.send_message(f"❌ Invalid job path! Type `/jobs` to view valid listings.", ephemeral=True)
-        
-        set_user_job(interaction.user.id, target_job)
-        return await interaction.response.send_message(f"💼 Employment contract updated! You are now working as a **{target_job.capitalize()}**.")
-        
-    embed = discord.Embed(title="💼 Job Market Dashboard", description=f"Your Active Position: **{current_job.capitalize()}**\n\nTo apply for a vacancy, type: `/jobs join_job:[Name]`\n", color=discord.Color.blue())
-    
-    for job_name, data in JOBS_LIST.items():
-        embed.add_field(
-            name=f"🛠️ {job_name.capitalize()}",
-            value=f"**Pay Scales:** {data['salary_min']} - {data['salary_max']} coins\n**Cooldown:** {data['cooldown']} seconds\n*{data['description']}*",
-            inline=False
-        )
-    await interaction.response.send_message(embed=embed)
-
+return await interaction.response.send_message(f"❌ Invalid job path! Type /jobs to view valid listings.", ephemeral=True)
+set_user_job(interaction.user.id, target_job)
+return await interaction.response.send_message(f"💼 Employment contract updated! You are now working as a {target_job.capitalize()}.")
+embed = discord.Embed(title="💼 Job Market Dashboard", description=f"Your Active Position: {current_job.capitalize()}\n\nTo apply for a vacancy, type: /jobs join_job:[Name]\n", color=discord.Color.blue())
+for job_name, data in JOBS_LIST.items():
+embed.add_field(
+name=f"🛠️ {job_name.capitalize()}",
+value=f"Pay Scales: {data['salary_min']} - {data['salary_max']} coins\nCooldown: {data['cooldown']} seconds\n*{data['description']}*",
+inline=False
+)
+await interaction.response.send_message(embed=embed)
 @bot.tree.command(name="work", description="Complete active employment operational tasks to receive salary funds.")
 async def work(interaction: discord.Interaction):
-    profile = get_profile(interaction.user.id)
-    current_job = profile.get("job", "beggar")
-    last_work = profile.get("last_work", 0)
-    
-    job_info = JOBS_LIST[current_job]
-    current_time = int(time.time())
-    elapsed = current_time - last_work
-    earnings = random.randint(job_info["salary_min"], job_info["salary_max"])
+profile = get_profile(interaction.user.id)
+current_job = profile.get("job", "beggar")
+last_work = profile.get("last_work", 0)
+job_info = JOBS_LIST[current_job]
+current_time = int(time.time())
+elapsed = current_time - last_work
+if elapsed < job_info["cooldown"]:
+remaining = job_info["cooldown"] - elapsed
+return await interaction.response.send_message(f"⏳ Shift constraints active! Return to work in {remaining} seconds.", ephemeral=True)
+earnings = random.randint(job_info["salary_min"], job_info["salary_max"])
 update_balance(interaction.user.id, wallet_change=earnings)
 update_work_timestamp(interaction.user.id)
 await interaction.response.send_message(f"💰 You completed a work shift as a {current_job.capitalize()} and received {earnings} coins!")
@@ -264,7 +290,7 @@ item = next((i for i in shop_items if i["name"].lower() == target_name), None)
 if not item:
 return await interaction.response.send_message("❌ Product not located! Ensure name syntax matches the /shop listing exactly.", ephemeral=True)
 if profile["wallet"] < item["price"]:
-return await interaction.response.send_message(f"❌ Transaction failed. You require {item['price']} coins in your wallet wallet to purchase this item.", ephemeral=True)
+return await interaction.response.send_message(f"❌ Transaction failed. You require {item['price']} coins in your wallet to purchase this item.", ephemeral=True)
 update_balance(interaction.user.id, wallet_change=-item["price"])
 add_to_inventory(interaction.user.id, item["name"])
 await interaction.response.send_message(f"🎉 Acquisition confirmed! {item['name']} bought for {item['price']} coins. Review your items via /inventory.")
@@ -297,6 +323,13 @@ return await interaction.response.send_message("❌ Transaction error: Input val
 update_balance(member.id, wallet_change=amount)
 await interaction.response.send_message(f"✅ Secure injection complete! {amount} coins deposited to {member.mention}'s wallet node.")
 
+--- APPLICATION COOLDOWN ERROR HANDLER ---
+
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+if isinstance(error, app_commands.CommandOnCooldown):
+await interaction.response.send_message(f"⏳ Slow down! Try again in {error.retry_after:.2f}s.", ephemeral=True)
+
 --- BACKGROUND RUNNER ENGINES ---
 
 def run_discord_bot():
@@ -304,19 +337,12 @@ token = os.environ.get("DISCORD_TOKEN")
 if not token:
 print("❌ CRITICAL ERROR: Environment variable 'DISCORD_TOKEN' was not found.")
 return
-# Establish a fresh async context explicitly bound to Python 3.14 runner layers
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 loop.run_until_complete(bot.start(token))
 if name == "main":
-# 1. Spawn Discord loops inside their own isolated background worker channel threads
 bot_thread = threading.Thread(target=run_discord_bot)
 bot_thread.daemon = True
 bot_thread.start()
-# 2. Bind Flask directly to the primary system entry process thread
 port = int(os.environ.get("PORT", 10000))
 app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
-    if elapsed < job_info["cooldown"]:
-        remaining = job_info["cooldown"] - elapsed
-        return await interaction.response.send_message(f"⏳ Shift constraints active! Return to work in **{remaining} seconds**.", ephemeral=True)
-        
