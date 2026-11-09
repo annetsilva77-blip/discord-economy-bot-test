@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Shop Manager</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #1e1f22; color: #dbdee1; margin: 0; padding: 40px; }
+        .box { max-width: 600px; margin: auto; background: #2b2d31; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        h1, h2 { color: #fff; margin-top: 0; }
+        .input-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; color: #b5bac1; font-size: 14px; }
+        input { width: 100%; padding: 10px; background: #383a40; border: 1px solid #1e1f22; color: #fff; border-radius: 4px; box-sizing: border-box; }
+        button { background: #5865f2; color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        button:hover { background: #4752c4; }
+        .alert { background: #da373c; color: white; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #3f4147; }
+        th { color: #fff; background: #313338; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h1>🛒 Bot Shop Control Panel</h1>
+    
+    {% if not is_owner %}
+    <div class="alert">
+        🔒 <strong>Access Denied:</strong> To add items, please visit your secret dashboard URL: <br>
+        <code>/?owner_id=1327939431608483895</code>
+    </div>
+    {% else %}
+    
+    <h2>✨ Add New Item to /shop</h2>
+    <form method="POST">
+        <div class="input-group">
+            <label>Item Name</label>
+            <input type="text" name="name" required placeholder="e.g., God Sword">
+        </div>
+        <div class="input-group">
+            <label>Price (Amount of Coins)</label>
+            <input type="number" name="price" required min="1" placeholder="e.g., 500">
+        </div>
+        <button type="submit">Publish Item</button>
+    </form>
+    {% endif %}
+
+    <h2>📦 Live Shop Items</h2>
+    <table>
+        <thead>
+            <tr><th>Item Name</th><th>Price</th></tr>
+        </thead>
+        <tbody>
+            {% for item in shop_items %}
+            <tr><td><strong>{{ item.name }}</strong></td><td>🪙 {{ item.price }} coins</td></tr>
+            {% else %}
+            <tr><td colspan="2" style="color: #949ba4;">The shop is empty. Add your first item above!</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+</body>
+</html>
