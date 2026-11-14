@@ -1,128 +1,96 @@
 
+import os
+import random
+import threading
+import asyncio
+import time
+import uuid
 
-# ADMIN ADD MONEY
+import discord
+from discord import app_commands
+from discord.ext import commands
 
-@bot.tree.command(
-    name="addmoney",
-    description="Give coins to a member. Admins and owner only."
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory
+from werkzeug.utils import secure_filename
+
+import certifi
+
+from pymongo import MongoClient
+from pymongo.errors import PyMongoError
+
+
+OWNER_ID = 1327939431608483895
+
+UPLOAD_FOLDER = "static/uploads"
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+
+JOBS_LIST = {
+    "beggar": {
+        "salary_min": 10,
+        "salary_max": 40,
+        "cooldown": 30,
+        "description": "Beg strangers for spare change on the street corner."
+    },
+    "gamer": {
+        "salary_min": 50,
+        "salary_max": 150,
+        "cooldown": 60,
+        "description": "Stream voxel sandbox games and build a digital fanbase."
+    },
+    "developer": {
+        "salary_min": 150,
+        "salary_max": 450,
+        "cooldown": 120,
+        "description": "Write cloud systems, microcontrollers, and custom Discord bots."
+    }
+}
+
+
+# FLASK SETUP
+
+app = Flask(__name__)
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+# MONGODB CONNECTION
+
+mongo_uri = os.environ.get("MONGODB_URI")
+
+if not mongo_uri:
+    raise RuntimeError("MONGODB_URI environment variable is missing.")
+
+client = MongoClient(
+    mongo_uri,
+    authSource="admin",
+    tls=True,
+    tlsCAFile=certifi.where(),
+    serverSelectionTimeoutMS=30000,
+    connectTimeoutMS=30000,
+    retryWrites=True
 )
-@app_commands.describe(
-    member="Member receiving coins",
-    amount="Amount of coins to give"
-)
-async def addmoney(
-    interaction: discord.Interaction,
-    member: discord.Member,
-    amount: int
-):
-    is_owner = interaction.user.id == OWNER_ID
 
-    is_admin = (
-        interaction.guild is not None
-        and interaction.permissions.administrator
+db = client["economy_bot_database"]
+
+shop_collection = db["shop_items"]
+economy_collection = db["player_profiles"]
+
+try:
+    client.admin.command("ping")
+
+    economy_collection.create_index(
+        "user_id",
+        unique=True
     )
 
-    if not (is_owner or is_admin):
-        return await interaction.response.send_message(
-            "❌ You do not have permission to use this command.",
-            ephemeral=True
-        )
+    print("MongoDB Atlas connected successfully!")
 
-    if amount <= 0:
-        return await interaction.response.send_message(
-            "❌ Amount must be greater than zero.",
-            ephemeral=True
-        )
-
-    if not update_balance(
-        member.id,
-        wallet_change=amount
-    ):
-        return await interaction.response.send_message(
-            "❌ Database error. Coins were not added.",
-            ephemeral=True
-        )
-
-    await interaction.response.send_message(
-        f"✅ Added **{amount} coins** to {member.mention}'s wallet!"
-    )
+except PyMongoError as e:
+    print("MongoDB connection failed:", e)
+    raise
 
 
-# COMMAND ERROR HANDLER
-
-@bot.tree.error
-async def on_app_command_error(
-    interaction: discord.Interaction,
-    error: app_commands.AppCommandError
-):
-
-    if isinstance(error, app_commands.CommandOnCooldown):
-
-        message = (
-            f"⏳ Slow down! Try again in "
-            f"{error.retry_after:.2f} seconds."
-        )
-
-        if interaction.response.is_done():
-
-            await interaction.followup.send(
-                message,
-                ephemeral=True
-            )
-
-        else:
-
-            await interaction.response.send_message(
-                message,
-                ephemeral=True
-            )
-
-    else:
-
-        print("Discord command error:", error)
-
-        message = "❌ Something went wrong while running that command."
-
-        if interaction.response.is_done():
-
-            await interaction.followup.send(
-                message,
-                ephemeral=True
-            )
-
-        else:
-
-            await interaction.response.send_message(
-                message,
-                ephemeral=True
-            )
-
-
-# BACKGROUND BOT RUNNER
-
-def run_discord_bot():
-
-    token = os.environ.get("DISCORD_TOKEN")
-
-    if not token:
-        print("DISCORD_TOKEN environment variable is missing.")
-        return
-
-    asyncio.run(
-        bot.start(token)
-    )
-
-
-# START APPLICATION
-
-if __name__ == "__main__":
-
-    bot_thread = threading.Thread(
-        target=run_discord_bot,
-        daemon=True
-    )
-
-    bot_thread.start()
-
-    port = int(
-        os.environ.get("PORT", 10000)
+# DATABASE FUNCTIONS
