@@ -1,395 +1,85 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>PIXEL-GP 2D // Multiplayer VC Racing</title>
-  <style>
-    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
-    body {
-      background: #0b0e17;
-      color: #fff;
-      font-family: 'Courier New', Courier, monospace;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
-    }
-    header {
-      background: #141929;
-      border-bottom: 2px solid #2b3556;
-      padding: 8px 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 13px;
-    }
-    .badge {
-      background: #3b82f6;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-weight: bold;
-    }
-    #garage-bar {
-      background: #101524;
-      padding: 8px 12px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      border-bottom: 1px solid #1f2942;
-      flex-wrap: wrap;
-    }
-    select, button.action-btn {
-      background: #1e2640;
-      color: #fff;
-      border: 1px solid #4c6ef5;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-family: inherit;
-      font-size: 13px;
-    }
-    #car-stats {
-      font-size: 11px;
-      color: #a5b4fc;
-    }
-    #canvas-wrap {
-      flex: 1;
-      position: relative;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #090c14;
-    }
-    canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-      image-rendering: pixelated;
-    }
-    #hud-overlay {
-      position: absolute;
-      top: 10px;
-      left: 12px;
-      background: rgba(15, 20, 35, 0.85);
-      border: 1px solid #3b82f6;
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      pointer-events: none;
-    }
-    #winner-banner {
-      display: none;
-      position: absolute;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.78);
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      gap: 12px;
-      z-index: 10;
-    }
-    #controls {
-      background: #141929;
-      border-top: 2px solid #2b3556;
-      padding: 10px;
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr 1.3fr;
-      gap: 8px;
-      height: 92px;
-    }
-    .pedal {
-      border: none;
-      border-radius: 10px;
-      font-family: inherit;
-      font-weight: bold;
-      font-size: 14px;
-      color: #fff;
-      cursor: pointer;
-      touch-action: manipulation;
-    }
-    .pedal:active, .pedal.active { transform: scale(0.96); filter: brightness(1.25); }
-    #btn-brake { background: #dc2626; }
-    #btn-shift { background: #2563eb; }
-    #btn-nitro { background: #9333ea; }
-    #btn-gas   { background: #16a34a; font-size: 16px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Economy Bot Dashboard</title>
+    <style>
+        body { font-family: sans-serif; background: #23272a; color: #fff; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #2c2f33; }
+        th { background-color: #7289da; }
+        .form-group { margin-bottom: 15px; }
+        input, button { padding: 8px; margin-right: 10px; }
+        button { background: #7289da; color: white; border: none; cursor: pointer; }
+    </style>
 </head>
 <body>
-  <header>
-    <div>🕹️ <strong>PIXEL-GP 2D</strong></div>
-    <div><span class="badge" id="room-label">VC ROOM</span></div>
-  </header>
+    <div class="container">
+        <h1>Economy Bot Activity Dashboard</h1>
+        
+        <div class="admin-panel">
+            <h3>Admin Tools</h3>
+            <div class="form-group">
+                <input type="text" id="userId" placeholder="User ID">
+                <input type="number" id="amount" placeholder="Amount">
+                <button onclick="addMoney()">Add Money</button>
+            </div>
+        </div>
 
-  <div id="garage-bar">
-    <label for="car-select">🚘 Car:</label>
-    <select id="car-select"></select>
-    <span id="car-stats">Loading garage...</span>
-  </div>
-
-  <div id="canvas-wrap">
-    <canvas id="raceCanvas"></canvas>
-    <div id="hud-overlay">
-      <div>SPEED: <strong id="hud-speed">0</strong> KM/H</div>
-      <div>GEAR: <strong id="hud-gear">1</strong> / 6</div>
-      <div>RPM: <strong id="hud-rpm">1000</strong></div>
-      <div>NITRO: <strong id="hud-nitro">READY</strong></div>
+        <h2>Leaderboard / User Activity</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Wallet Balance</th>
+                    <th>Bank Balance</th>
+                </tr>
+            </thead>
+            <tbody id="economy-table">
+                <!-- Data injected dynamically -->
+            </tbody>
+        </table>
     </div>
-    <div id="winner-banner">
-      <h2 id="winner-text">🏆 RACE FINISHED!</h2>
-      <button class="action-btn" onclick="resetRace()">🔄 Race Again</button>
-    </div>
-  </div>
 
-  <div id="controls">
-    <button class="pedal" id="btn-brake">🛑 BRAKE<br><small>[S / Down]</small></button>
-    <button class="pedal" id="btn-shift">⬆️ SHIFT<br><small>[E / Space]</small></button>
-    <button class="pedal" id="btn-nitro">🔥 NITRO<br><small>[Shift]</small></button>
-    <button class="pedal" id="btn-gas">⚡ GAS<br><small>[W / Up]</small></button>
-  </div>
-
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    let roomId = params.get("room") || "default_vc";
-    let userId = params.get("uid") || ("guest_" + Math.floor(Math.random() * 100000));
-    let username = params.get("name") || "Racer";
-    let betAmount = parseInt(params.get("bet") || "0", 10);
-
-    document.getElementById("room-label").textContent = "ROOM: " + roomId.slice(-6) + (betAmount > 0 ? " • BET: " + betAmount : "");
-
-    let myCars = [];
-    let selectedCar = { name: "Starter Kart", top_speed: 140, accel: 8.5, handling: 70, hp: 110, pixel_color: "#3498db", rarity: "COMMON" };
-    let progress = 0;
-    let speed = 0;
-    let gear = 1;
-    let rpm = 1000;
-    let nitroUsed = false;
-    let nitroTimer = 0;
-    let finished = false;
-    let gasHeld = false;
-    let brakeHeld = false;
-    let allPlayers = [];
-
-    const carSelect = document.getElementById("car-select");
-    const carStatsEl = document.getElementById("car-stats");
-
-    async function loadGarage() {
-      try {
-        const res = await fetch(`/api/player/${encodeURIComponent(userId)}`);
-        const data = await res.json();
-        myCars = data.cars || [selectedCar];
-      } catch (e) {
-        myCars = [selectedCar];
-      }
-      carSelect.innerHTML = "";
-      myCars.forEach((c, idx) => {
-        const opt = document.createElement("option");
-        opt.value = idx;
-        opt.textContent = `${c.name} (${c.rarity})`;
-        carSelect.appendChild(opt);
-      });
-      selectCar(0);
-    }
-
-    function selectCar(idx) {
-      selectedCar = myCars[idx] || selectedCar;
-      carStatsEl.textContent = `${selectedCar.top_speed} KM/H • 0-100: ${selectedCar.accel}s • ${selectedCar.hp} HP`;
-    }
-
-    carSelect.addEventListener("change", (e) => selectCar(parseInt(e.target.value, 10)));
-
-    function shiftUp() {
-      if (gear < 6) {
-        if (rpm >= 5500 && rpm <= 7800) {
-          speed += 18; // Perfect shift boost
-        }
-        gear += 1;
-        rpm = Math.max(2500, rpm - 2800);
-      }
-    }
-
-    function triggerNitro() {
-      if (!nitroUsed && !finished) {
-        nitroUsed = true;
-        nitroTimer = 2.5;
-        document.getElementById("hud-nitro").textContent = "ACTIVE!";
-      }
-    }
-
-    function bindHoldButton(id, onDown, onUp) {
-      const el = document.getElementById(id);
-      el.addEventListener("touchstart", (e) => { e.preventDefault(); el.classList.add("active"); onDown(); }, { passive: false });
-      el.addEventListener("touchend", (e) => { e.preventDefault(); el.classList.remove("active"); onUp(); }, { passive: false });
-      el.addEventListener("mousedown", () => { el.classList.add("active"); onDown(); });
-      el.addEventListener("mouseup", () => { el.classList.remove("active"); onUp(); });
-      el.addEventListener("mouseleave", () => { el.classList.remove("active"); onUp(); });
-    }
-
-    bindHoldButton("btn-gas", () => { gasHeld = true; }, () => { gasHeld = false; });
-    bindHoldButton("btn-brake", () => { brakeHeld = true; }, () => { brakeHeld = false; });
-
-    document.getElementById("btn-shift").addEventListener("touchstart", (e) => { e.preventDefault(); shiftUp(); }, { passive: false });
-    document.getElementById("btn-shift").addEventListener("click", shiftUp);
-
-    document.getElementById("btn-nitro").addEventListener("touchstart", (e) => { e.preventDefault(); triggerNitro(); }, { passive: false });
-    document.getElementById("btn-nitro").addEventListener("click", triggerNitro);
-
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "w" || e.key === "W" || e.key === "ArrowUp") gasHeld = true;
-      if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") brakeHeld = true;
-      if (e.key === " " || e.key === "e" || e.key === "E") shiftUp();
-      if (e.key === "Shift") triggerNitro();
-    });
-
-    window.addEventListener("keyup", (e) => {
-      if (e.key === "w" || e.key === "W" || e.key === "ArrowUp") gasHeld = false;
-      if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") brakeHeld = false;
-    });
-
-    async function resetRace() {
-      progress = 0;
-      speed = 0;
-      gear = 1;
-      rpm = 1000;
-      nitroUsed = false;
-      nitroTimer = 0;
-      finished = false;
-      document.getElementById("hud-nitro").textContent = "READY";
-      document.getElementById("winner-banner").style.display = "none";
-      await syncState("reset");
-    }
-
-    async function syncState(action = "") {
-      try {
-        const res = await fetch(`/api/room/${encodeURIComponent(roomId)}/sync`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: userId,
-            username: username,
-            car: selectedCar,
-            progress: progress,
-            speed: Math.round(speed),
-            finished: finished,
-            action: action,
-            bet: betAmount
-          })
-        });
-        const data = await res.json();
-        allPlayers = data.players || [];
-        if (data.status === "finished" && data.winner_name) {
-          document.getElementById("winner-text").textContent = `🏆 ${data.winner_name} WINS!`;
-          document.getElementById("winner-banner").style.display = "flex";
-        }
-      } catch (e) {}
-    }
-
-    const canvas = document.getElementById("raceCanvas");
-    const ctx = canvas.getContext("2d");
-
-    function resizeCanvas() {
-      canvas.width = canvas.clientWidth;
-      canvas.height = canvas.clientHeight;
-    }
-    window.addEventListener("resize", resizeCanvas);
-    resizeCanvas();
-
-    let lastTime = performance.now();
-    function gameLoop(now) {
-      const dt = Math.min(0.1, (now - lastTime) / 1000);
-      lastTime = now;
-
-      const maxGearSpeed = (selectedCar.top_speed / 6) * gear;
-      const accelRate = (11.0 - Math.min(9.0, selectedCar.accel)) * 18;
-
-      if (!finished) {
-        if (nitroTimer > 0) {
-          nitroTimer -= dt;
-          if (nitroTimer <= 0) document.getElementById("hud-nitro").textContent = "EMPTY";
+    <script>
+        async function loadData() {
+            const res = await fetch('/api/economy');
+            const result = await res.json();
+            if (result.status === 'success') {
+                const tbody = document.getElementById('economy-table');
+                tbody.innerHTML = '';
+                result.data.forEach(user => {
+                    const row = `<tr>
+                        <td>${user.user_id}</td>
+                        <td>${user.balance}</td>
+                        <td>${user.bank}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            }
         }
 
-        const effectiveTop = nitroTimer > 0 ? selectedCar.top_speed * 1.25 : maxGearSpeed;
-
-        if (gasHeld) {
-          speed = Math.min(effectiveTop, speed + accelRate * dt);
-          rpm = Math.min(8200, 1500 + (speed / maxGearSpeed) * 6500);
-        } else if (brakeHeld) {
-          speed = Math.max(0, speed - 180 * dt);
-          rpm = Math.max(1000, rpm - 4000 * dt);
-        } else {
-          speed = Math.max(0, speed - 35 * dt);
-          rpm = Math.max(1000, rpm - 2500 * dt);
+        async function addMoney() {
+            const userId = document.getElementById('userId').value;
+            const amount = document.getElementById('amount').value;
+            
+            const res = await fetch('/api/admin/addmoney', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, amount: amount })
+            });
+            
+            const result = await res.json();
+            if (result.status === 'success') {
+                loadData();
+            } else {
+                alert('Error updating balance: ' + result.message);
+            }
         }
 
-        progress += (speed / 2600) * dt * 100;
-        if (progress >= 100) {
-          progress = 100;
-          finished = true;
-          syncState();
-        }
-      }
-
-      document.getElementById("hud-speed").textContent = Math.round(speed);
-      document.getElementById("hud-gear").textContent = gear;
-      document.getElementById("hud-rpm").textContent = Math.round(rpm);
-
-      drawTrack();
-      requestAnimationFrame(gameLoop);
-    }
-
-    function drawPixelCar(x, y, color, label) {
-      ctx.fillStyle = color || "#3498db";
-      ctx.fillRect(x, y - 14, 48, 16);
-      ctx.fillStyle = "#e2e8f0";
-      ctx.fillRect(x + 10, y - 22, 24, 9);
-      ctx.fillStyle = "#111";
-      ctx.fillRect(x + 6, y - 2, 10, 8);
-      ctx.fillRect(x + 32, y - 2, 10, 8);
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 12px monospace";
-      ctx.fillText(label, x, y - 28);
-    }
-
-    function drawTrack() {
-      ctx.fillStyle = "#0b0e17";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      const startX = 40;
-      const finishX = canvas.width - 60;
-      const trackWidth = Math.max(100, finishX - startX);
-
-      // Finish line checkered flag
-      for (let y = 80; y < canvas.height - 20; y += 16) {
-        ctx.fillStyle = (Math.floor(y / 16) % 2 === 0) ? "#fff" : "#111";
-        ctx.fillRect(finishX, y, 12, 16);
-      }
-
-      const racers = allPlayers.length > 0 ? allPlayers : [{
-        user_id: userId,
-        username: username,
-        car: selectedCar,
-        progress: progress
-      }];
-
-      racers.forEach((p, idx) => {
-        const laneY = 130 + idx * 75;
-        if (laneY > canvas.height - 20) return;
-
-        ctx.fillStyle = "#1e293b";
-        ctx.fillRect(startX, laneY - 24, trackWidth, 34);
-
-        const pProg = (p.user_id === userId) ? progress : (p.progress || 0);
-        const carX = startX + (pProg / 100) * (trackWidth - 48);
-        const color = (p.car && p.car.pixel_color) ? p.car.pixel_color : "#3498db";
-        drawPixelCar(carX, laneY, color, `${p.username} (${p.car ? p.car.name : "Car"})`);
-      });
-    }
-
-    loadGarage().then(() => {
-      syncState();
-      setInterval(() => syncState(), 400);
-      requestAnimationFrame(gameLoop);
-    });
-  </script>
+        window.onload = loadData;
+    </script>
 </body>
 </html>
