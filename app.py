@@ -1,121 +1,96 @@
-                view=None
-            )
+import os
+import random
+import threading
+import asyncio
+import time
+import discord
 
-        # Reserve both bets before the race begins.
-        update_balance(interaction.user.id, wallet_change=-bet)
-        update_balance(opponent.id, wallet_change=-bet)
+from discord import app_commands
+from discord.ext import commands
+from flask import Flask, render_template, request, redirect, url_for
+from werkzeug.utils import secure_filename
+from supabase import create_client, Client
 
-    track_len = 14
-    p1_pos = 0
-    p2_pos = 0
-    msg = await interaction.original_response()
+OWNER_ID = 1327939431608483895
 
-    await msg.edit(
-        embed=build_pixel_track(
-            interaction.user.display_name,
-            p1_pos,
-            opponent.display_name,
-            p2_pos,
-            track_len,
-            "🔴 RED LIGHT... GET READY!"
-        ),
-        view=None
-    )
+# Read and clean environment variables from Render
+DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN", "").strip()
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().strip('"').strip("'")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "").strip().strip('"').strip("'")
 
-    await asyncio.sleep(1.5)
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise RuntimeError("Missing SUPABASE_URL or SUPABASE_KEY in Render Environment Variables.")
 
-    events = [
-        "🔥 Turbo boost activated!",
-        "💨 Drafting behind rival!",
-        "⚡ Perfect gear shift!",
-        "🛞 Tires screeching on asphalt!"
-    ]
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-    while p1_pos < track_len and p2_pos < track_len:
-        p1_pos += random.randint(1, 3)
-        p2_pos += random.randint(1, 3)
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
-        status = f"🟢 GO! {random.choice(events)}"
+JOBS_LIST = {
+    "beggar": {
+        "salary_min": 10,
+        "salary_max": 40,
+        "cooldown": 30,
+        "description": "Beg strangers for spare change on the street corner."
+    },
+    "gamer": {
+        "salary_min": 50,
+        "salary_max": 150,
+        "cooldown": 60,
+        "description": "Stream voxel sandbox games and build a digital fanbase."
+    },
+    "developer": {
+        "salary_min": 150,
+        "salary_max": 450,
+        "cooldown": 120,
+        "description": "Write cloud systems, microcontrollers, and custom Discord bots."
+    }
+}
 
-        await msg.edit(
-            embed=build_pixel_track(
-                interaction.user.display_name,
-                p1_pos,
-                opponent.display_name,
-                p2_pos,
-                track_len,
-                status
-            )
-        )
-
-        await asyncio.sleep(1.2)
-
-    # Determine the winner.
-    if p1_pos >= track_len and p2_pos >= track_len:
-        if p1_pos > p2_pos:
-            winner, loser = interaction.user, opponent
-        elif p2_pos > p1_pos:
-            winner, loser = opponent, interaction.user
-        else:
-            winner = None
-            loser = None
-    elif p1_pos >= track_len:
-        winner, loser = interaction.user, opponent
-    else:
-        winner, loser = opponent, interaction.user
-
-    if winner is None:
-        if bet > 0:
-            update_balance(interaction.user.id, wallet_change=bet)
-            update_balance(opponent.id, wallet_change=bet)
-
-        result_text = "🤝 PHOTO FINISH! It's a tie — bets refunded!"
-    else:
-        if bet > 0:
-            update_balance(winner.id, wallet_change=bet * 2)
-
-        result_text = (
-            f"🏆 {winner.display_name} WINS and takes "
-            f"{bet * 2} coins total pot!"
-            if bet > 0
-            else f"🏆 {winner.display_name} WINS the race!"
-        )
-
-    final_embed = build_pixel_track(
-        interaction.user.display_name,
-        p1_pos,
-        opponent.display_name,
-        p2_pos,
-        track_len,
-        result_text
-    )
-    final_embed.color = discord.Color.gold()
-
-    await msg.edit(
-        content=f"🏁 Race Finished! {result_text}",
-        embed=final_embed
-    )
+app = Flask(__name__)
 
 
-# ==========================================
-# START FLASK AND DISCORD BOT TOGETHER
-# ==========================================
+# --- SUPABASE HELPER FUNCTIONS ---
 
-def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+def get_profile(user_id):
+    uid = str(user_id)
+    res = supabase.table("users").select("*").eq("user_id", uid).execute()
+
+    if not res.data:
+        new_profile = {
+            "user_id": uid,
+            "wallet": 0,
+            "bank": 0,
+            "inventory": [],
+            "job": "beggar",
+            "last_work": 0
+        }
+        supabase.table("users").insert(new_profile).execute()
+        return new_profile
+
+    profile = res.data[0]
+    if profile.get("job") not in JOBS_LIST:
+        profile["job"] = "beggar"
+    if profile.get("inventory") is None:
+        profile["inventory"] = []
+    return profile
 
 
-if __name__ == "__main__":
-    if not DISCORD_TOKEN:
-        raise RuntimeError(
-            "Missing DISCORD_TOKEN in Render Environment Variables."
-        )
+def update_balance(user_id, wallet_change=0, bank_change=0):
+    profile = get_profile(user_id)
+    new_wallet = max(0, profile["wallet"] + wallet_change)
+    new_bank = max(0, profile["bank"] + bank_change)
 
-    flask_thread = threading.Thread(
-        target=run_flask,
-        daemon=True
-    )
-    flask_thread.start()
+    supabase.table("users").update({
+        "wallet": new_wallet,
+        "bank": new_bank
+    }).eq("user_id", str(user_id)).execute()
 
-    bot.run(DISCORD_TOKEN)
+
+def add_to_inventory(user_id, item_name):
+    profile = get_profile(user_id)
+    inv = list(profile.get("inventory") or [])
+    inv.append(item_name)
+
+    supabase.table("users").update({
+        "inventory": inv
+    }).eq("user_id", str(user_id)).execute()
