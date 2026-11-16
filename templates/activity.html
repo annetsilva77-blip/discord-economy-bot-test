@@ -1,659 +1,247 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>PIXEL-GP 2D // Pixel Car Racer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel riders — main menu</title>
 <style>
-*{box-sizing:border-box;user-select:none;-webkit-user-select:none;touch-action:manipulation}
-body{margin:0;background:#0b0e17;color:white;font-family:'Courier New',monospace;display:flex;flex-direction:column;height:100vh;overflow:hidden}
-header{background:#14192b;border-bottom:2px solid #6c5ce7;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:12px;z-index:20}
-.badge{background:#6c5ce7;padding:3px 8px;border-radius:4px;font-weight:bold}
-#main{flex:1;position:relative;overflow:hidden}
-canvas{width:100%;height:100%;display:block;image-rendering:pixelated;outline:none}
-#lobby-overlay{position:absolute;inset:0;background:rgba(11,14,23,.94);display:flex;align-items:center;justify-content:center;padding:12px;z-index:15;overflow-y:auto}
-.card{background:#161b2e;border:2px solid #4834d4;border-radius:10px;padding:14px;width:100%;max-width:460px;box-shadow:0 0 25px rgba(108,92,231,.4)}
-.car-stats{margin-top:8px;font-size:11px;background:#0f1322;padding:8px;border-radius:6px}
-.bar-bg{background:#262d47;height:7px;border-radius:4px;overflow:hidden;margin-bottom:5px}
-.bar-fill{background:#a29bfe;height:100%;transition:width .25s}
-select,button{font-family:'Courier New',monospace;font-weight:bold;border-radius:6px;border:none;cursor:pointer}
-select{width:100%;padding:9px;background:#222942;color:#fff;font-size:13px;margin-top:6px}
-.mode-grid{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
-.mode-btn{padding:12px;text-align:left;color:#fff;font-size:13px;display:flex;justify-content:space-between;align-items:center}
-.mode-btn:hover{filter:brightness(1.15)}
-.m-solo{background:#0984e3}.m-multi{background:#00b894;color:#000}.m-open{background:#e17055}
-#mp-wait-bar,#ow-bar{display:none;position:absolute;left:50%;transform:translateX(-50%);z-index:12;text-align:center}
-#mp-wait-bar{top:10px;background:rgba(20,25,43,.95);border:2px solid #00b894;padding:10px 14px;border-radius:8px;width:92%;max-width:440px}
-#ow-bar{top:10px;background:rgba(20,25,43,.9);border:2px solid #e17055;padding:6px 12px;border-radius:8px;gap:8px;align-items:center;font-size:12px}
-#controls{background:#14192b;border-top:2px solid #2d3554;padding:8px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.2fr;gap:6px;height:82px}
-.ctrl-btn{font-size:13px;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px}
-.ctrl-btn:active,.ctrl-btn.active{transform:scale(.95);filter:brightness(1.25)}
-#btn-left,#btn-right{background:#2d3436}#btn-brake{background:#d63031}#btn-nitro{background:#e17055}#btn-gas{background:#00b894;color:#000;font-size:15px}
+:root{
+  --kimi-color-text-primary:#111;
+  --kimi-color-text-secondary:#444;
+  --kimi-color-text-tertiary:#777;
+  --kimi-color-text-quaternary:#aaa;
+  --kimi-color-surface:#fff;
+  --kimi-color-surface-muted:#f3f3f3;
+  --kimi-color-surface-raised:#e9e9e9;
+  --kimi-color-surface-strong:#dfe3e8;
+  --kimi-color-border:#ddd;
+  --kimi-color-danger:#e5484d;
+  --kimi-color-positive:#30a46c;
+  --kimi-color-warning:#f5a524;
+  --kimi-color-accent:#0090ff;
+  --kimi-chart-1:#0090ff;
+  --kimi-chart-2:#e5484d;
+  --kimi-chart-3:#30a46c;
+  --kimi-chart-4:#8e4ec6;
+  --kimi-chart-5:#8b8d98;
+  --kimi-font-sans:ui-sans-serif,system-ui,sans-serif;
+  --t-fast:120ms;
+  --ease-out:cubic-bezier(.2,0,0,1);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --kimi-color-text-primary:#eee;
+    --kimi-color-text-secondary:#bbb;
+    --kimi-color-text-tertiary:#888;
+    --kimi-color-text-quaternary:#555;
+    --kimi-color-surface:#151517;
+    --kimi-color-surface-muted:#1f1f22;
+    --kimi-color-surface-raised:#2a2a2e;
+    --kimi-color-surface-strong:#3a3f46;
+    --kimi-color-border:#333;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;padding:24px;font-family:var(--kimi-font-sans);background:var(--kimi-color-surface);color:var(--kimi-color-text-primary)}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
 </style>
+<base target="_blank">
 </head>
 <body>
-<header>
-<div><span class="badge">PIXEL-GP 2D</span> <span id="hdr-mode">LOBBY</span></div>
-<div id="hdr-hud">0 KM/H</div>
-<button id="btn-back-lobby" style="background:#d63031;color:#fff;padding:4px 8px;font-size:11px">LOBBY</button>
-</header>
+<div class="wrap">
+<div class="root" style="font-family:var(--kimi-font-sans)">
+<style>
+.root button{font:inherit}
+.root .tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.screen{display:flex;flex-direction:column;gap:16px}
+.titleRow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.gameTitle{font-size:20px;font-weight:500;letter-spacing:0}
+.coins{font-size:14px;color:var(--kimi-color-text-secondary)}
+.coins b{color:var(--kimi-color-text-primary);font-weight:500}
+.modeGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.modeGrid{grid-template-columns:1fr}}
+.modeCard{border:1px solid var(--kimi-color-border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:background var(--t-fast) var(--ease-out)}
+.modeCard:hover{background:var(--kimi-color-surface-muted)}
+.modeCard.sel{border-color:var(--kimi-color-text-primary);background:var(--kimi-color-surface-muted)}
+.modeName{font-size:17px;font-weight:500}
+.modeDesc{font-size:14px;color:var(--kimi-color-text-secondary);line-height:20px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;padding:2px 8px;border-radius:6px;border:1px solid var(--kimi-color-border);color:var(--kimi-color-text-secondary)}
+.chip.on{color:var(--kimi-color-text-primary);border-color:var(--kimi-color-text-primary)}
+.btn{border:none;border-radius:10px;padding:8px 16px;font-size:14px;font-weight:500;cursor:pointer;transition:opacity var(--t-fast) var(--ease-out)}
+.btn.primary{background:var(--kimi-color-text-primary);color:var(--kimi-color-surface)}
+.btn.ghost{background:transparent;border:1px solid var(--kimi-color-border);color:var(--kimi-color-text-primary)}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.panel{border:1px solid var(--kimi-color-border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.panelTitle{font-size:15px;font-weight:500}
+.friend{display:flex;align-items:center;gap:8px;font-size:14px}
+.avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--kimi-color-surface)}
+.switch{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.switch input{accent-color:var(--kimi-color-text-primary);width:16px;height:16px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--kimi-color-border)}
+.tab{background:none;border:none;border-bottom:2px solid transparent;padding:8px 12px;font-size:14px;color:var(--kimi-color-text-secondary);cursor:pointer}
+.tab.on{color:var(--kimi-color-text-primary);border-bottom-color:var(--kimi-color-text-primary);font-weight:500}
+.carGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.carCard{border:1px solid var(--kimi-color-border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.carCard.owned{border-color:var(--kimi-color-text-primary)}
+.carName{font-size:15px;font-weight:500}
+.carArt{align-self:center}
+.stat{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--kimi-color-text-secondary)}
+.bar{flex:1;height:6px;border-radius:3px;background:var(--kimi-color-surface-muted);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px;background:var(--kimi-color-text-primary)}
+.partRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--kimi-color-border);border-radius:10px;flex-wrap:wrap}
+.partName{font-size:14px;font-weight:500}
+.partDesc{font-size:12px;color:var(--kimi-color-text-secondary)}
+.meta{font-size:12px;color:var(--kimi-color-text-tertiary)}
+.tag{font-size:11px;padding:1px 6px;border-radius:6px}
+.speedTag{background:color-mix(in srgb,var(--kimi-chart-1) 15%,transparent);color:var(--kimi-chart-1)}
+.driftTag{background:color-mix(in srgb,var(--kimi-chart-4) 15%,transparent);color:var(--kimi-chart-4)}
+.muscleTag{background:color-mix(in srgb,var(--kimi-chart-2) 15%,transparent);color:var(--kimi-chart-2)}
+.offTag{background:color-mix(in srgb,var(--kimi-chart-3) 15%,transparent);color:var(--kimi-chart-3)}
+</style>
 
-<div id="main">
-<canvas id="gameCanvas" tabindex="0"></canvas>
+<div class="screen" id="menuScreen">
+  <div class="titleRow">
+    <div class="gameTitle">Pixel riders</div>
+    <div class="coins tnum">Coins: <b id="coinCount">4,500</b></div>
+  </div>
 
-<div id="lobby-overlay">
-<div class="card">
-<div style="display:flex;justify-content:space-between;align-items:center">
-<strong id="car-title" style="font-size:17px">Starter Kart</strong>
-<span id="car-rarity" class="badge">COMMON</span>
+  <div class="modeGrid">
+    <div class="modeCard sel" id="mpCard">
+      <div class="modeName">Multiplayer</div>
+      <div class="modeDesc">Race your friends in real time. Invite the lobby or challenge a rival directly.</div>
+      <div class="chips" id="mpChips"></div>
+      <button class="btn primary" id="mpPlay" style="align-self:flex-start">Play multiplayer</button>
+    </div>
+    <div class="modeCard" id="owCard">
+      <div class="modeName">Open world</div>
+      <div class="modeDesc">One big shared city. Anyone can join your world — cruise, race at lights, or just show off your garage.</div>
+      <div class="chips" id="owChips"></div>
+      <button class="btn ghost" id="owPlay" style="align-self:flex-start">Drive open world</button>
+    </div>
+  </div>
+
+  <div class="row">
+    <button class="btn ghost" id="toGarage">Garage &amp; dealership</button>
+  </div>
+
+  <div class="panel">
+    <div class="titleRow">
+      <div class="panelTitle">In the lobby</div>
+      <label class="switch"><input type="checkbox" id="openWorld" checked> Anyone can join this world</label>
+    </div>
+    <div class="row" id="lobby"></div>
+    <div class="meta" id="lobbyMeta">4 friends online</div>
+  </div>
 </div>
-<select id="car-select"></select>
-<div class="car-stats">
-<div>TOP SPEED: <span id="st-speed">145</span> KM/H</div>
-<div class="bar-bg"><div id="bar-speed" class="bar-fill" style="width:35%"></div></div>
-<div>ACCELERATION (0-100): <span id="st-accel">8.9</span>s</div>
-<div class="bar-bg"><div id="bar-accel" class="bar-fill" style="width:25%"></div></div>
-<div>HANDLING: <span id="st-hand">65</span>/100</div>
-<div class="bar-bg"><div id="bar-hand" class="bar-fill" style="width:65%"></div></div>
-<div style="margin-top:4px;color:#a29bfe">
-<span id="st-hp">110</span> HP • <span id="st-drive">RWD</span> • <span id="st-weight">680</span> KG <span id="st-flag">🇯🇵</span>
-</div>
-</div>
-<div class="mode-grid">
-<button class="mode-btn m-solo" id="pick-solo"><span>1️⃣ RACE ALONE (VS AI BOT)</span><span>▶</span></button>
-<button class="mode-btn m-multi" id="pick-multi"><span>2️⃣ 2-PLAYER MULTIPLAYER RACE</span><span>▶</span></button>
-<button class="mode-btn m-open" id="pick-openworld"><span>3️⃣ OPEN WORLD (FREE ROAM + RACE)</span><span>▶</span></button>
-</div>
-</div>
+
+<div class="screen" id="garageScreen" style="display:none">
+  <div class="titleRow">
+    <div class="gameTitle">Garage</div>
+    <div class="coins tnum">Coins: <b id="coinCount2">4,500</b></div>
+  </div>
+  <div class="tabs">
+    <button class="tab on" data-tab="garage">My cars</button>
+    <button class="tab" data-tab="dealer">Dealership</button>
+    <button class="tab" data-tab="parts">Parts shop</button>
+  </div>
+  <div id="tabBody" style="display:flex;flex-direction:column;gap:12px"></div>
+  <button class="btn ghost" id="backBtn" style="align-self:flex-start">Back to menu</button>
 </div>
 
-<div id="mp-wait-bar">
-<div id="mp-players-text" style="font-size:12px;margin-bottom:8px">Waiting for racers...</div>
-<div style="display:flex;gap:8px;justify-content:center">
-<button id="btn-mp-ready" style="background:#0984e3;color:#fff;padding:8px 12px">✅ READY</button>
-<button id="btn-mp-start" style="background:#00b894;color:#000;padding:8px 12px">🏁 START RACE</button>
-</div>
-</div>
+<script>
+const CARS=[
+ {id:'pocket',name:'Pocket rocket',cls:'starter',body:'var(--kimi-chart-5)',price:0,spd:34,acc:52,hnd:60,owned:true},
+ {id:'fox',name:'Street fox',cls:'speed',body:'var(--kimi-chart-1)',price:1200,spd:52,acc:48,hnd:55},
+ {id:'drift',name:'Drift king',cls:'drift',body:'var(--kimi-chart-4)',price:1800,spd:46,acc:44,hnd:82},
+ {id:'muscle',name:'Muscle v8',cls:'muscle',body:'var(--kimi-chart-2)',price:2600,spd:62,acc:38,hnd:40},
+ {id:'rally',name:'Rally beast',cls:'offroad',body:'var(--kimi-chart-3)',price:3400,spd:55,acc:58,hnd:70},
+ {id:'hyper',name:'Hyper one',cls:'speed',body:'var(--kimi-chart-1)',price:5200,spd:88,acc:74,hnd:62},
+];
+const PARTS=[
+ {id:'turbo',name:'Turbo kit',desc:'+12 speed',price:900},
+ {id:'nitro',name:'Nitro tank',desc:'+15 acceleration',price:750},
+ {id:'tires',name:'Racing tires',desc:'+10 handling',price:600},
+ {id:'wing',name:'GT wing',desc:'+6 handling, looks fast',price:450},
+ {id:'tune',name:'Engine tune',desc:'+8 speed, +5 acceleration',price:1100},
+];
+let coins=4500, partsOwned=[];
+const FRIENDS=[['M','var(--kimi-chart-1)'],['Z','var(--kimi-chart-2)'],['K','var(--kimi-chart-4)'],['A','var(--kimi-chart-3)']];
+const CLSTAG={starter:'',speed:['speedTag','speed'],drift:['driftTag','drift'],muscle:['muscleTag','muscle'],offroad:['offTag','offroad']};
 
-<div id="ow-bar">
-<span id="ow-status">FREE ROAM</span>
-<button id="btn-ow-race" style="background:#ffeaa7;color:#000;padding:5px 10px">🏁 STREET RACE</button>
-</div>
-</div>
+const PIX=[
+"......cc........",
+"....cccccc......",
+"...ccccccccc....",
+"..gggggggggg....",
+".ggggggggggggg..",
+".hggggggggggggt.",
+".gggggggggggggg.",
+"..kk........kk..",
+"..kk........kk.."];
 
-<div id="controls">
-<button class="ctrl-btn" id="btn-left">◀ LEFT<small>[A]</small></button>
-<button class="ctrl-btn" id="btn-right">▶ RIGHT<small>[D]</small></button>
-<button class="ctrl-btn" id="btn-brake">🛑 BRAKE<small>[S]</small></button>
-<button class="ctrl-btn" id="btn-nitro">🔥 NITRO<small>[Shift]</small></button>
-<button class="ctrl-btn" id="btn-gas">⚡ GAS<small>[W]</small></button>
-</div>
+function carSVG(body,scale){
+ scale=scale||6; const cols=16, rows=PIX.length;
+ let r=''; const m={c:body,g:'var(--kimi-color-surface-strong)',h:'var(--kimi-color-warning)',t:'var(--kimi-color-danger)',k:'var(--kimi-color-text-primary)'};
+ for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){const ch=PIX[y][x]; if(m[ch]) r+='<rect x="'+(x*scale)+'" y="'+(y*scale)+'" width="'+scale+'" height="'+scale+'" fill="'+m[ch]+'"/>';}
+ return '<svg class="carArt" width="'+(cols*scale)+'" height="'+(rows*scale)+'" viewBox="0 0 '+(cols*scale)+' '+(rows*scale)+'" shape-rendering="crispEdges">'+r+'</svg>';
+}
+function fmt(n){return n.toLocaleString('en-US');}
+function refreshCoins(){['coinCount','coinCount2'].forEach(id=>{const e=document.getElementById(id); if(e)e.textContent=fmt(coins);});}
 
-<script type="module">
-const params=new URLSearchParams(location.search);
-let roomId=params.get("room")||"{{ room_id }}";
-const bet=parseInt(params.get("bet")||"{{ bet }}"||"0",10);
-let userId=params.get("uid")||"guest_"+Math.floor(Math.random()*999999);
-let username=params.get("name")||"Racer";
-let customBgUrl="{{ bg_url }}";
-let customBgImg=null;
+document.getElementById('mpChips').innerHTML=['Race','Drift battle','Tag','Time attack'].map((m,i)=>'<span class="chip'+(i===0?' on':'')+'">'+m+'</span>').join('');
+document.getElementById('owChips').innerHTML=['City cruise','Meetup spot','Highway loop','Stunt park'].map((m,i)=>'<span class="chip'+(i===0?' on':'')+'">'+m+'</span>').join('');
+document.getElementById('lobby').innerHTML=FRIENDS.map(f=>'<div class="friend"><div class="avatar" style="background:'+f[1]+'">'+f[0]+'</div></div>').join('');
 
-if(customBgUrl){customBgImg=new Image();customBgImg.src=customBgUrl;}
+document.getElementById('mpCard').onclick=()=>select('mpCard','owCard');
+document.getElementById('owCard').onclick=()=>select('owCard','mpCard');
+function select(a,b){document.getElementById(a).classList.add('sel');document.getElementById(b).classList.remove('sel');}
 
-let ownedCars=[{
-name:"Starter Kart",rarity:"COMMON",color:"#95a5a6",
-top_speed:145,accel:8.9,handling:65,braking:60,
-hp:110,drivetrain:"RWD",weight:680,flag:"🇯🇵",emoji:"🛺"
-}];
-let selectedCar=ownedCars[0];
+document.getElementById('mpPlay').onclick=()=>{ if(window.sendPrompt) window.sendPrompt('Start a multiplayer race with my friends in Pixel riders'); };
+document.getElementById('owPlay').onclick=()=>{ if(window.sendPrompt) window.sendPrompt('Drive into the open world city, anyone can join'); };
+document.getElementById('openWorld').onchange=e=>{document.getElementById('lobbyMeta').textContent=e.target.checked?'4 friends online · world is open to everyone':'4 friends online · invite only';};
 
-function renderCarSelect(){
-const sel=document.getElementById("car-select");
-sel.innerHTML="";
-ownedCars.forEach((c,idx)=>{
-const opt=document.createElement("option");
-opt.value=idx;
-opt.textContent=`${c.emoji||"🏎️"} ${c.name} (${c.top_speed} KM/H • ${c.hp} HP)`;
-if(c.name===selectedCar.name)opt.selected=true;
-sel.appendChild(opt);
-});
-updateCarCard();
+function statRow(label,val){return '<div class="stat"><span style="width:34px">'+label+'</span><div class="bar"><i style="width:'+val+'%"></i></div></div>';}
+
+function carCard(c,dealer){
+ const owned=c.owned, afford=coins>=c.price, tag=CLSTAG[c.cls]&&CLSTAG[c.cls][0]?'<span class="tag '+CLSTAG[c.cls][0]+'">'+CLSTAG[c.cls][1]+'</span>':'<span class="tag">starter</span>';
+ let btn;
+ if(owned) btn='<button class="btn ghost" disabled style="align-self:flex-start">In your garage</button>';
+ else btn='<button class="btn primary" data-buy="'+c.id+'" '+(afford?'':'disabled')+' style="align-self:flex-start">Buy &middot; '+fmt(c.price)+'</button>';
+ return '<div class="carCard'+(owned?' owned':'')+'"><div class="row" style="justify-content:space-between"><div class="carName">'+c.name+'</div>'+tag+'</div>'+carSVG(c.body)+statRow('spd',c.spd)+statRow('acc',c.acc)+statRow('hnd',c.hnd)+btn+'</div>';
 }
 
-function updateCarCard(){
-const c=selectedCar;
-document.getElementById("car-title").textContent=`${c.emoji||"🏎️"} ${c.name}`;
-document.getElementById("car-rarity").textContent=c.rarity||"COMMON";
-document.getElementById("car-rarity").style.background=c.color||"#6c5ce7";
-document.getElementById("st-speed").textContent=c.top_speed;
-document.getElementById("bar-speed").style.width=Math.min(100,c.top_speed/430*100)+"%";
-document.getElementById("st-accel").textContent=c.accel;
-document.getElementById("bar-accel").style.width=Math.min(100,Math.max(15,(10.5-c.accel)*12))+"%";
-document.getElementById("st-hand").textContent=c.handling;
-document.getElementById("bar-hand").style.width=c.handling+"%";
-document.getElementById("st-hp").textContent=c.hp;
-document.getElementById("st-drive").textContent=c.drivetrain;
-document.getElementById("st-weight").textContent=c.weight;
-document.getElementById("st-flag").textContent=c.flag;
+function renderTab(tab){
+ const body=document.getElementById('tabBody');
+ document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
+ if(tab==='garage'){
+  const mine=CARS.filter(c=>c.owned);
+  body.innerHTML='<div class="meta">'+mine.length+' car'+(mine.length>1?'s':'')+' owned · buy more at the dealership</div><div class="carGrid">'+mine.map(c=>carCard(c)).join('')+'</div>';
+ }else if(tab==='dealer'){
+  const notMine=CARS.filter(c=>!c.owned);
+  body.innerHTML='<div class="meta">Fresh stock — earn coins by winning races</div><div class="carGrid">'+notMine.map(c=>carCard(c,true)).join('')+'</div>';
+ }else{
+  body.innerHTML=PARTS.map(p=>{
+   const owned=partsOwned.includes(p.id);
+   return '<div class="partRow"><div><div class="partName">'+p.name+'</div><div class="partDesc">'+p.desc+'</div></div>'+(owned?'<button class="btn ghost" disabled>Installed</button>':'<button class="btn primary" data-part="'+p.id+'" '+(coins>=p.price?'':'disabled')+'>Buy &middot; '+fmt(p.price)+'</button>')+'</div>';
+  }).join('');
+ }
+ body.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
+  const c=CARS.find(x=>x.id===b.dataset.buy);
+  if(coins>=c.price){coins-=c.price;c.owned=true;refreshCoins();renderTab('dealer');}
+ });
+ body.querySelectorAll('[data-part]').forEach(b=>b.onclick=()=>{
+  const p=PARTS.find(x=>x.id===b.dataset.part);
+  if(coins>=p.price){coins-=p.price;partsOwned.push(p.id);refreshCoins();renderTab('parts');}
+ });
 }
 
-document.getElementById("car-select").addEventListener("change",e=>{
-selectedCar=ownedCars[parseInt(e.target.value,10)]||ownedCars[0];
-updateCarCard();
-});
-renderCarSelect();
-
-async function initDiscordSDK(){
-const clientId="{{ client_id }}";
-if(!clientId||!location.search.includes("frame_id"))return;
-try{
-const {DiscordSDK}=await import("https://esm.sh/@discord/embedded-app-sdk");
-const sdk=new DiscordSDK(clientId);
-await sdk.ready();
-if(sdk.channelId)roomId=sdk.channelId;
-const {code}=await sdk.commands.authorize({
-client_id:clientId,response_type:"code",state:"",prompt:"none",scope:["identify"]
-});
-const tokRes=await fetch("/api/token",{
-method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({code})
-});
-const tokData=await tokRes.json();
-if(tokData.access_token){
-const auth=await sdk.commands.authenticate({access_token:tokData.access_token});
-if(auth&&auth.user){
-userId=auth.user.id;
-username=auth.user.global_name||auth.user.username;
-}
-}
-}catch(e){console.error("Discord SDK:",e);}
-}
-
-async function loadPlayerGarage(){
-try{
-const res=await fetch(`/api/player/${encodeURIComponent(userId)}`);
-const data=await res.json();
-if(data.cars&&data.cars.length){
-ownedCars=data.cars;
-selectedCar=ownedCars[ownedCars.length-1];
-}
-if(data.bg_url&&!customBgImg){
-customBgImg=new Image();
-customBgImg.src=data.bg_url;
-}
-}catch(e){console.warn("Garage could not load:",e);}
-renderCarSelect();
-}
-
-let gameMode="lobby";
-let myProgress=0,mySpeed=0,nitroTimer=0,aiProgress=0;
-let soloCountdown=0,soloWinner="";
-let owX=500,owY=500,owAngle=0,owPlayers=[];
-let owStreetRace={active:false,countdown:0,checkpoint_x:1650,checkpoint_y:350,winner:""};
-let mpState={status:"lobby",countdown:0,winner:null,players:[]};
-const flames=[];
-
-function spawnFlame(x,y,angle,isNitro){
-for(let i=0;i<(isNitro?4:2);i++){
-flames.push({
-x:x-Math.cos(angle)*20+(Math.random()-.5)*6,
-y:y-Math.sin(angle)*20+(Math.random()-.5)*6,
-vx:-Math.cos(angle)*(80+Math.random()*90)+(Math.random()-.5)*35,
-vy:-Math.sin(angle)*(80+Math.random()*90)+(Math.random()-.5)*35,
-life:.25+Math.random()*.15,nitro:isNitro
-});
-}
-}
-
-const keys={gas:false,brake:false,left:false,right:false};
-
-function bindHold(id,prop){
-const el=document.getElementById(id);
-const on=e=>{e.preventDefault();keys[prop]=true;el.classList.add("active");};
-const off=e=>{if(e)e.preventDefault();keys[prop]=false;el.classList.remove("active");};
-el.addEventListener("touchstart",on,{passive:false});
-el.addEventListener("touchend",off);
-el.addEventListener("touchcancel",off);
-el.addEventListener("mousedown",on);
-el.addEventListener("mouseup",off);
-el.addEventListener("mouseleave",off);
-}
-bindHold("btn-gas","gas");
-bindHold("btn-brake","brake");
-bindHold("btn-left","left");
-bindHold("btn-right","right");
-
-document.getElementById("btn-nitro").addEventListener("click",()=>{
-if(nitroTimer<=0)nitroTimer=2;
-});
-
-window.addEventListener("keydown",e=>{
-if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key))e.preventDefault();
-if(["w","W","ArrowUp"].includes(e.key))keys.gas=true;
-if(["s","S","ArrowDown"].includes(e.key))keys.brake=true;
-if(["a","A","ArrowLeft"].includes(e.key))keys.left=true;
-if(["d","D","ArrowRight"].includes(e.key))keys.right=true;
-if(e.key==="Shift"&&nitroTimer<=0)nitroTimer=2;
-});
-window.addEventListener("keyup",e=>{
-if(["w","W","ArrowUp"].includes(e.key))keys.gas=false;
-if(["s","S","ArrowDown"].includes(e.key))keys.brake=false;
-if(["a","A","ArrowLeft"].includes(e.key))keys.left=false;
-if(["d","D","ArrowRight"].includes(e.key))keys.right=false;
-});
-
-const canvas=document.getElementById("gameCanvas");
-const ctx=canvas.getContext("2d");
-
-function enterMode(mode){
-gameMode=mode;
-document.getElementById("lobby-overlay").style.display="none";
-document.getElementById("mp-wait-bar").style.display=mode==="multi"?"block":"none";
-document.getElementById("ow-bar").style.display=mode==="openworld"?"flex":"none";
-document.getElementById("hdr-mode").textContent=mode.toUpperCase();
-canvas.focus();
-myProgress=0;mySpeed=0;nitroTimer=0;
-if(mode==="solo"){aiProgress=0;soloCountdown=2;soloWinner="";}
-else if(mode==="multi")syncMultiplayer("update");
-else if(mode==="openworld")syncOpenWorld("move");
-}
-
-document.getElementById("pick-solo").addEventListener("click",()=>enterMode("solo"));
-document.getElementById("pick-multi").addEventListener("click",()=>enterMode("multi"));
-document.getElementById("pick-openworld").addEventListener("click",()=>enterMode("openworld"));
-
-document.getElementById("btn-back-lobby").addEventListener("click",()=>{
-gameMode="lobby";
-document.getElementById("lobby-overlay").style.display="flex";
-document.getElementById("mp-wait-bar").style.display="none";
-document.getElementById("ow-bar").style.display="none";
-document.getElementById("hdr-mode").textContent="LOBBY";
-});
-
-async function syncMultiplayer(action="update"){
-if(gameMode!=="multi")return;
-try{
-const res=await fetch(`/api/room/${encodeURIComponent(roomId)}/sync`,{
-method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({
-user_id:userId,username,car_name:selectedCar.name,
-progress:myProgress,speed:Math.round(mySpeed),
-firing:keys.gas||nitroTimer>0,bet,action
-})
-});
-const prev=mpState.status;
-mpState=await res.json();
-if(prev!=="racing"&&mpState.status==="racing"){myProgress=0;mySpeed=0;}
-document.getElementById("mp-wait-bar").style.display=mpState.status==="lobby"?"block":"none";
-document.getElementById("mp-players-text").textContent=
-"LOBBY: "+(mpState.players||[]).map(p=>`${p.ready?"✅":"⏳"} ${p.username} (${p.car.name})`).join(" | ");
-}catch(e){console.warn("Multiplayer sync:",e);}
-}
-
-document.getElementById("btn-mp-ready").addEventListener("click",()=>syncMultiplayer("ready"));
-document.getElementById("btn-mp-start").addEventListener("click",()=>syncMultiplayer("start"));
-
-async function syncOpenWorld(action="move"){
-if(gameMode!=="openworld")return;
-try{
-const res=await fetch(`/api/openworld/${encodeURIComponent(roomId)}/sync`,{
-method:"POST",headers:{"Content-Type":"application/json"},
-body:JSON.stringify({
-user_id:userId,username,car_name:selectedCar.name,
-x:owX,y:owY,angle:owAngle,speed:mySpeed,
-firing:keys.gas||nitroTimer>0,action
-})
-});
-const data=await res.json();
-owPlayers=data.players||[];
-owStreetRace=data.street_race||owStreetRace;
-document.getElementById("ow-status").textContent=owStreetRace.active
-?"🏁 RACE TO CHECKPOINT!":`PLAYERS ONLINE: ${owPlayers.length}`;
-}catch(e){console.warn("Open world sync:",e);}
-}
-document.getElementById("btn-ow-race").addEventListener("click",()=>syncOpenWorld("start_street_race"));
-
-setInterval(()=>{
-if(gameMode==="multi")syncMultiplayer("update");
-if(gameMode==="openworld")syncOpenWorld("move");
-},350);
-
-function resize(){
-const rect=canvas.getBoundingClientRect();
-canvas.width=Math.max(1,Math.floor(rect.width));
-canvas.height=Math.max(1,Math.floor(rect.height));
-}
-window.addEventListener("resize",resize);
-resize();
-
-/* PIXEL ART CAR SPRITE */
-function drawPixelCar(x,y,angle,color,label,firing,isNitro){
-ctx.save();
-ctx.translate(Math.round(x),Math.round(y));
-ctx.rotate(angle);
-
-// Exhaust flames
-if(firing){
-const len=isNitro?25+Math.random()*15:12+Math.random()*8;
-ctx.fillStyle=isNitro?"#00cec9":"#ff7675";
-ctx.fillRect(-19-len,-6,len,5);
-ctx.fillRect(-19-len,2,len,5);
-ctx.fillStyle="#ffeaa7";
-ctx.fillRect(-19-len*.65,-5,len*.65,3);
-ctx.fillRect(-19-len*.65,3,len*.65,3);
-}
-
-// Shadow
-ctx.fillStyle="rgba(0,0,0,.4)";
-ctx.fillRect(-16,-8,38,22);
-
-// Spoiler
-ctx.fillStyle="#11151d";
-ctx.fillRect(-18,-14,5,28);
-ctx.fillRect(-22,-16,12,3);
-ctx.fillRect(-22,13,12,3);
-
-// Tyres
-ctx.fillStyle="#080a0e";
-ctx.fillRect(-12,-13,10,6);
-ctx.fillRect(7,-13,10,6);
-ctx.fillRect(-12,7,10,6);
-ctx.fillRect(7,7,10,6);
-
-// Tyre shine
-ctx.fillStyle="#69717c";
-ctx.fillRect(-10,-12,5,2);
-ctx.fillRect(9,-12,5,2);
-ctx.fillRect(-10,8,5,2);
-ctx.fillRect(9,8,5,2);
-
-// Main chassis
-ctx.fillStyle="#10141d";
-ctx.fillRect(-17,-10,36,20);
-
-// Car body
-ctx.fillStyle=color||"#e74c3c";
-ctx.fillRect(-15,-9,32,18);
-ctx.fillRect(-12,-11,25,22);
-ctx.fillRect(-17,-6,35,12);
-
-// Front bumper
-ctx.fillStyle="#171a22";
-ctx.fillRect(15,-9,5,18);
-
-// Hood
-ctx.fillStyle=color||"#e74c3c";
-ctx.fillRect(9,-7,7,14);
-
-// Racing stripes
-ctx.fillStyle="#f5f6fa";
-ctx.fillRect(-10,-2,24,2);
-ctx.fillRect(-10,2,24,2);
-
-// Windows
-ctx.fillStyle="#172d45";
-ctx.fillRect(-3,-7,10,14);
-ctx.fillRect(-12,-6,5,12);
-
-// Window reflections
-ctx.fillStyle="#74b9ff";
-ctx.fillRect(-1,-6,3,5);
-ctx.fillRect(3,2,3,4);
-
-// Front windshield edge
-ctx.fillStyle="#0b1725";
-ctx.fillRect(6,-8,2,16);
-
-// Headlights
-ctx.fillStyle="#fff3a3";
-ctx.fillRect(15,-7,3,4);
-ctx.fillRect(15,3,3,4);
-
-// Headlight glow
-ctx.fillStyle="#ffeaa7";
-ctx.fillRect(18,-6,2,2);
-ctx.fillRect(18,4,2,2);
-
-// Rear lights
-ctx.fillStyle="#ff3838";
-ctx.fillRect(-17,-7,3,4);
-ctx.fillRect(-17,3,3,4);
-
-// Racing number
-ctx.fillStyle="#fff";
-ctx.font="bold 7px Courier New";
-ctx.textAlign="center";
-ctx.fillText("GP",3,3);
-
-// Body details
-ctx.fillStyle="rgba(0,0,0,.25)";
-ctx.fillRect(-7,-9,2,18);
-ctx.fillRect(11,-8,2,16);
-
-ctx.restore();
-
-// Name above car
-ctx.fillStyle="#fff";
-ctx.font="bold 11px Courier New";
-ctx.textAlign="center";
-ctx.shadowColor="#000";
-ctx.shadowBlur=4;
-ctx.fillText(label||"RACER",x,y-21);
-ctx.shadowBlur=0;
-ctx.textAlign="left";
-}
-
-let lastTime=performance.now();
-
-function loop(now){
-const dt=Math.min(.1,(now-lastTime)/1000);
-lastTime=now;
-
-if(nitroTimer>0)nitroTimer-=dt;
-const isFiring=keys.gas||nitroTimer>0;
-const accelPower=Math.max(40,(11.5-(selectedCar.accel||8.9))*24);
-const maxSpd=nitroTimer>0?selectedCar.top_speed*1.25:selectedCar.top_speed;
-
-if(gameMode==="solo"){
-if(soloCountdown>0)soloCountdown-=dt;
-else if(!soloWinner){
-if(isFiring)mySpeed=Math.min(maxSpd,mySpeed+accelPower*dt);
-else mySpeed=Math.max(0,mySpeed-45*dt);
-if(keys.brake)mySpeed=Math.max(0,mySpeed-140*dt);
-myProgress=Math.min(100,myProgress+(mySpeed/1800)*dt*100);
-aiProgress=Math.min(100,aiProgress+(165/1800)*dt*100);
-if(myProgress>=100)soloWinner=username;
-else if(aiProgress>=100)soloWinner="AI RIVAL BOT";
-}
-}
-else if(gameMode==="multi"){
-if(mpState.status==="racing"&&mpState.countdown<=0){
-if(isFiring)mySpeed=Math.min(maxSpd,mySpeed+accelPower*dt);
-else mySpeed=Math.max(0,mySpeed-45*dt);
-if(keys.brake)mySpeed=Math.max(0,mySpeed-140*dt);
-myProgress=Math.min(100,myProgress+(mySpeed/1800)*dt*100);
-}
-}
-else if(gameMode==="openworld"){
-if(isFiring)mySpeed=Math.min(maxSpd*1.4,mySpeed+accelPower*1.5*dt);
-else mySpeed=Math.max(0,mySpeed-90*dt);
-if(keys.brake)mySpeed=Math.max(0,mySpeed-220*dt);
-const turnRate=((selectedCar.handling||65)/100)*3.2;
-if(mySpeed>8){
-if(keys.left)owAngle-=turnRate*dt;
-if(keys.right)owAngle+=turnRate*dt;
-}
-owX=Math.max(40,Math.min(1960,owX+Math.cos(owAngle)*mySpeed*dt*1.4));
-owY=Math.max(40,Math.min(1960,owY+Math.sin(owAngle)*mySpeed*dt*1.4));
-if(isFiring)spawnFlame(owX,owY,owAngle,nitroTimer>0);
-if(owStreetRace.active&&owStreetRace.countdown<=0){
-const dist=Math.hypot(owX-owStreetRace.checkpoint_x,owY-owStreetRace.checkpoint_y);
-if(dist<55)syncOpenWorld("win_street_race");
-}
-}
-
-document.getElementById("hdr-hud").textContent=
-`${Math.round(mySpeed)} KM/H${nitroTimer>0?" 🔥":""}`;
-
-ctx.fillStyle="#161b29";
-ctx.fillRect(0,0,canvas.width,canvas.height);
-
-if(gameMode==="solo"||gameMode==="multi"){
-if(customBgImg&&customBgImg.complete&&customBgImg.naturalWidth>0)
-ctx.drawImage(customBgImg,0,0,canvas.width,canvas.height);
-else{
-// Pixel racing track
-ctx.fillStyle="#252b3b";
-ctx.fillRect(0,0,canvas.width,canvas.height);
-ctx.fillStyle="#343b4d";
-for(let x=0;x<canvas.width;x+=32){
-ctx.fillRect(x,0,2,canvas.height);
-}
-}
-
-const racers=gameMode==="solo"?[
-{user_id:userId,username,car:selectedCar,progress:myProgress,firing:isFiring},
-{user_id:"ai",username:"AI Rival",car:{color:"#e84393"},progress:aiProgress,firing:soloCountdown<=0}
-]:(mpState.players.length?mpState.players:[
-{user_id:userId,username,car:selectedCar,progress:myProgress,firing:isFiring}
-]);
-
-const laneH=Math.min(85,(canvas.height-60)/Math.max(2,racers.length));
-const startX=45;
-const finishX=canvas.width-55;
-const trackW=Math.max(120,finishX-startX);
-
-racers.forEach((r,idx)=>{
-const y=35+idx*laneH;
-ctx.fillStyle="#30394b";
-ctx.fillRect(startX,y,trackW,laneH-8);
-ctx.fillStyle="#414b60";
-for(let sx=startX;sx<finishX;sx+=40){
-ctx.fillRect(sx,y+laneH/2,20,2);
-}
-const prog=r.user_id===userId?myProgress:r.progress;
-const cx=startX+20+(prog/100)*(trackW-45);
-drawPixelCar(cx,y+laneH/2-4,0,r.car.color,r.username,r.firing,nitroTimer>0);
-});
-
-// Finish line
-for(let y=35;y<35+laneH*racers.length;y+=10){
-ctx.fillStyle=(Math.floor(y/10)%2===0)?"#fff":"#000";
-ctx.fillRect(finishX,y,10,10);
-}
-
-if(gameMode==="solo"&&soloCountdown>0){
-ctx.fillStyle="rgba(0,0,0,.55)";
-ctx.fillRect(0,0,canvas.width,canvas.height);
-ctx.fillStyle="#ff7675";
-ctx.font="bold 48px Courier New";
-ctx.textAlign="center";
-ctx.fillText(Math.ceil(soloCountdown),canvas.width/2,canvas.height/2);
-ctx.textAlign="left";
-}
-
-const winName=gameMode==="solo"?soloWinner:
-(mpState.status==="finished"?mpState.winner:"");
-
-if(winName){
-ctx.fillStyle="rgba(0,0,0,.72)";
-ctx.fillRect(0,0,canvas.width,canvas.height);
-ctx.fillStyle="#ffeaa7";
-ctx.font="bold 24px Courier New";
-ctx.textAlign="center";
-ctx.fillText(`🏆 WINNER: ${winName}!`,canvas.width/2,canvas.height/2-10);
-ctx.font="14px Courier New";
-ctx.fillStyle="#fff";
-ctx.fillText("Click screen to race again",canvas.width/2,canvas.height/2+22);
-ctx.textAlign="left";
-}
-}
-else if(gameMode==="openworld"){
-const camX=owX-canvas.width/2;
-const camY=owY-canvas.height/2;
-
-ctx.save();
-ctx.translate(-camX,-camY);
-
-if(customBgImg&&customBgImg.complete&&customBgImg.naturalWidth>0){
-ctx.drawImage(customBgImg,0,0,2000,2000);
-}else{
-ctx.fillStyle="#1e272e";
-ctx.fillRect(0,0,2000,2000);
-ctx.fillStyle="#2f3640";
-for(let r=200;r<=1800;r+=400){
-ctx.fillRect(0,r-45,2000,90);
-ctx.fillRect(r-45,0,90,2000);
-}
-// Road markings
-ctx.fillStyle="#ffeaa7";
-for(let r=200;r<=1800;r+=400){
-for(let p=0;p<2000;p+=60){
-ctx.fillRect(p,r-2,30,4);
-ctx.fillRect(r-2,p,4,30);
-}
-}
-// City blocks
-ctx.fillStyle="#252c38";
-for(let bx=80;bx<1900;bx+=400){
-for(let by=80;by<1900;by+=400){
-ctx.fillRect(bx,by,180,180);
-ctx.fillStyle="#394456";
-ctx.fillRect(bx+15,by+15,150,150);
-ctx.fillStyle="#252c38";
-}
-}
-}
-
-if(owStreetRace.active){
-ctx.fillStyle="rgba(255,234,167,.35)";
-ctx.beginPath();
-ctx.arc(owStreetRace.checkpoint_x,owStreetRace.checkpoint_y,50,0,Math.PI*2);
-ctx.fill();
-ctx.fillStyle="#ffeaa7";
-ctx.font="bold 14px Courier New";
-ctx.fillText("🏁 FINISH",owStreetRace.checkpoint_x-32,owStreetRace.checkpoint_y);
-}
-
-// Exhaust particles
-for(let i=flames.length-1;i>=0;i--){
-const f=flames[i];
-f.x+=f.vx*dt;
-f.y+=f.vy*dt;
-f.life-=dt;
-if(f.life<=0){flames.splice(i,1);continue;}
-ctx.fillStyle=f.nitro?"#00cec9":(Math.random()>.5?"#ff7675":"#fdcb6e");
-ctx.fillRect(Math.round(f.x)-3,Math.round(f.y)-3,6,6);
-}
-
-// Other players
-owPlayers.forEach(p=>{
-if(p.user_id!==userId){
-drawPixelCar(p.x,p.y,p.angle,p.car?.color||"#e84393",p.username,p.firing,false);
-}
-});
-
-// Your car
-drawPixelCar(owX,owY,owAngle,selectedCar.color,username,isFiring,nitroTimer>0);
-
-ctx.restore();
-}
-
-requestAnimationFrame(loop);
-}
-
-canvas.addEventListener("click",()=>{
-canvas.focus();
-if(gameMode==="solo"&&soloWinner)enterMode("solo");
-if(gameMode==="multi"&&mpState.status==="finished")syncMultiplayer("reset");
-});
-
-(async()=>{
-await initDiscordSDK();
-await loadPlayerGarage();
-requestAnimationFrame(loop);
-})();
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>renderTab(t.dataset.tab));
+document.getElementById('toGarage').onclick=()=>{document.getElementById('menuScreen').style.display='none';document.getElementById('garageScreen').style.display='flex';renderTab('garage');};
+document.getElementById('backBtn').onclick=()=>{document.getElementById('garageScreen').style.display='none';document.getElementById('menuScreen').style.display='flex';};
 </script>
+</div>
+</div>
 </body>
 </html>
