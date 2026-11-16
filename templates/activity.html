@@ -291,7 +291,7 @@
 
     async function loadPlayerGarage() {
       try {
-        const res = await fetch(/api/player/${encodeURIComponent(userId)});
+        const res = await fetch(`/api/player/${encodeURIComponent(userId)}`);
         const data = await res.json();
         if (data.cars && data.cars.length > 0) {
           ownedCars = data.cars;
@@ -410,7 +410,7 @@
     async function syncMultiplayer(action = "update") {
       if (gameMode !== "multi") return;
       try {
-        const res = await fetch(/api/room/${encodeURIComponent(roomId)}/sync, {
+        const res = await fetch(`/api/room/${encodeURIComponent(roomId)}/sync`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -432,7 +432,7 @@
         }
         document.getElementById("mp-wait-bar").style.display = mpState.status === "lobby" ? "block" : "none";
         document.getElementById("mp-players-text").textContent =
-          "LOBBY: " + mpState.players.map(p => ${p.ready ? "✅" : "⏳"} ${p.username} (${p.car.name})).join(" | ");
+          "LOBBY: " + mpState.players.map(p => `${p.ready ? "✅" : "⏳"} ${p.username} (${p.car.name})`).join(" | ");
       } catch (e) {}
     }
 
@@ -442,7 +442,7 @@
     async function syncOpenWorld(action = "move") {
       if (gameMode !== "openworld") return;
       try {
-        const res = await fetch(/api/openworld/${encodeURIComponent(roomId)}/sync, {
+        const res = await fetch(`/api/openworld/${encodeURIComponent(roomId)}/sync`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -462,7 +462,7 @@
         owStreetRace = data.street_race || owStreetRace;
         document.getElementById("ow-status").textContent = owStreetRace.active
           ? "🏁 RACE TO CHECKPOINT!"
-          : PLAYERS ONLINE: ${owPlayers.length};
+          : `PLAYERS ONLINE: ${owPlayers.length}`;
       } catch (e) {}
     }
 
@@ -554,7 +554,7 @@
         }
       }
 
-      document.getElementById("hdr-hud").textContent = ${Math.round(mySpeed)} KM/H${nitroTimer > 0 ? " 🔥" : ""};
+      document.getElementById("hdr-hud").textContent = `${Math.round(mySpeed)} KM/H${nitroTimer > 0 ? " 🔥" : ""}`;
       ctx.fillStyle = "#161b29";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -600,7 +600,7 @@
           ctx.fillStyle = "#ffeaa7";
           ctx.font = "bold 24px Courier New";
           ctx.textAlign = "center";
-          ctx.fillText(🏆 WINNER: ${winName}!, canvas.width / 2, canvas.height / 2 - 10);
+          ctx.fillText(`🏆 WINNER: ${winName}!`, canvas.width / 2, canvas.height / 2 - 10);
           ctx.font = "14px Courier New";
           ctx.fillStyle = "#fff";
           ctx.fillText("Click screen to race again", canvas.width / 2, canvas.height / 2 + 22);
