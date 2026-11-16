@@ -53,6 +53,14 @@ def is_owner(user_id) -> bool:
     return int(user_id) == OWNER_ID
 
 
+def can_manage_money(interaction: discord.Interaction) -> bool:
+    if is_owner(interaction.user.id):
+        return True
+    if interaction.guild and isinstance(interaction.user, discord.Member):
+        return interaction.user.guild_permissions.administrator
+    return False
+
+
 # --- SUPABASE HELPER FUNCTIONS ---
 
 def get_profile(user_id):
@@ -193,12 +201,12 @@ async def on_ready():
     print(f"Logged in as: {bot.user}")
 
 
-@bot.tree.command(name="addmoney", description="Owner only: Add coins to a user's wallet.")
+@bot.tree.command(name="addmoney", description="Admin/Owner: Add coins to a user's wallet.")
 @app_commands.describe(member="The member to give coins to", amount="Amount of coins to add")
 async def addmoney(interaction: discord.Interaction, member: discord.Member, amount: int):
-    if not is_owner(interaction.user.id):
+    if not can_manage_money(interaction):
         return await interaction.response.send_message(
-            "❌ Only the bot owner can use this command.",
+            "❌ Only server administrators or the bot owner can use this command.",
             ephemeral=True
         )
 
@@ -210,7 +218,7 @@ async def addmoney(interaction: discord.Interaction, member: discord.Member, amo
 
     if is_owner(member.id):
         return await interaction.response.send_message(
-            "👑 You already have **∞ unlimited coins**!",
+            "👑 The bot owner already has **∞ unlimited coins**!",
             ephemeral=True
         )
 
@@ -378,7 +386,8 @@ async def jobs(interaction: discord.Interaction):
     for name, info in JOBS_LIST.items():
         embed.add_field(
             name=f"{name.title()} ({info['salary_min']}–{info['salary_max']} coins)",
-            value=f"{info['description']}\nCooldown: {info['cooldown']}s",
+            value=f"{info['description']}
+Cooldown: {info['cooldown']}s",
             inline=False
         )
     await interaction.response.send_message(embed=embed)
