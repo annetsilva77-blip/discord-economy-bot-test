@@ -53,11 +53,11 @@ def is_owner(user_id) -> bool:
     return int(user_id) == OWNER_ID
 
 
-def can_manage_money(interaction: discord.Interaction) -> bool:
+def is_admin_or_owner(interaction: discord.Interaction) -> bool:
     if is_owner(interaction.user.id):
         return True
-    if interaction.guild and isinstance(interaction.user, discord.Member):
-        return interaction.user.guild_permissions.administrator
+    if interaction.guild and interaction.user.guild_permissions.administrator:
+        return True
     return False
 
 
@@ -201,10 +201,10 @@ async def on_ready():
     print(f"Logged in as: {bot.user}")
 
 
-@bot.tree.command(name="addmoney", description="Admin/Owner: Add coins to a user's wallet.")
+@bot.tree.command(name="addmoney", description="Admin/Owner only: Add coins to a user's wallet.")
 @app_commands.describe(member="The member to give coins to", amount="Amount of coins to add")
 async def addmoney(interaction: discord.Interaction, member: discord.Member, amount: int):
-    if not can_manage_money(interaction):
+    if not is_admin_or_owner(interaction):
         return await interaction.response.send_message(
             "❌ Only server administrators or the bot owner can use this command.",
             ephemeral=True
@@ -384,10 +384,11 @@ async def work(interaction: discord.Interaction):
 async def jobs(interaction: discord.Interaction):
     embed = discord.Embed(title="💼 Available Jobs", color=discord.Color.blue())
     for name, info in JOBS_LIST.items():
+        desc = info["description"]
+        cd = info["cooldown"]
         embed.add_field(
             name=f"{name.title()} ({info['salary_min']}–{info['salary_max']} coins)",
-            value=f"{info['description']}
-Cooldown: {info['cooldown']}s",
+            value=f"{desc}\nCooldown: {cd}s",
             inline=False
         )
     await interaction.response.send_message(embed=embed)
@@ -547,15 +548,15 @@ def build_pixel_track(p1_name, p1_pos, p2_name, p2_pos, track_len=14, status_tex
     lane2 = render_lane(p2_pos, "🚗")
     border = "🟦" * (track_len + 3)
 
-    track_display = (
-        f"{border}\n"
-        f"**P1 • {p1_name}**\n"
-        f"{lane1}\n"
-        f"⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜\n"
-        f"**P2 • {p2_name}**\n"
-        f"{lane2}\n"
-        f"{border}"
-    )
+    track_display = "\n".join([
+        border,
+        f"**P1 • {p1_name}**",
+        lane1,
+        "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜",
+        f"**P2 • {p2_name}**",
+        lane2,
+        border
+    ])
 
     embed = discord.Embed(
         title="🕹️ PIXEL-GP 2D // 1v1 DRAG RACE",
@@ -594,13 +595,16 @@ async def race(interaction: discord.Interaction, opponent: discord.Member, bet: 
                 ephemeral=True
             )
 
+    challenge_desc = "\n".join([
+        f"**{interaction.user.display_name}** (🏎️) challenged **{opponent.display_name}** (🚗)!",
+        f"💰 **Wager:** `{bet} coins`",
+        "",
+        f"{opponent.mention}, click **Accept Race** within 30 seconds!"
+    ])
+
     challenge_embed = discord.Embed(
         title="🏁 1v1 Pixel Race Challenge!",
-        description=(
-            f"**{interaction.user.display_name}** (🏎️) challenged **{opponent.display_name}** (🚗)!\n"
-            f"💰 **Wager:** `{bet} coins`\n\n"
-            f"{opponent.mention}, click **Accept Race** within 30 seconds!"
-        ),
+        description=challenge_desc,
         color=discord.Color.orange()
     )
 
