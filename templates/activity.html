@@ -29,7 +29,7 @@
     }
     .badge { background: #6c5ce7; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
     #main { flex: 1; position: relative; overflow: hidden; }
-    canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+    canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; outline: none; }
 
     #lobby-overlay {
       position: absolute;
@@ -78,6 +78,7 @@
       justify-content: space-between;
       align-items: center;
     }
+    .mode-btn:hover { filter: brightness(1.15); }
     .m-solo { background: #0984e3; }
     .m-multi { background: #00b894; color: #000; }
     .m-open { background: #e17055; }
@@ -147,36 +148,36 @@
   </header>
 
   <div id="main">
-    <canvas id="gameCanvas"></canvas>
+    <canvas id="gameCanvas" tabindex="0"></canvas>
 
     <div id="lobby-overlay">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <strong id="car-title" style="font-size:17px;">BMW M4</strong>
-          <span id="car-rarity" class="badge">RARE</span>
+          <strong id="car-title" style="font-size:17px;">Starter Kart</strong>
+          <span id="car-rarity" class="badge">COMMON</span>
         </div>
         <select id="car-select"></select>
 
         <div class="car-stats">
-          <div>TOP SPEED: <span id="st-speed">252</span> KM/H</div>
-          <div class="bar-bg"><div id="bar-speed" class="bar-fill" style="width:60%"></div></div>
-          <div>ACCELERATION (0-100): <span id="st-accel">4.1</span>s</div>
-          <div class="bar-bg"><div id="bar-accel" class="bar-fill" style="width:75%"></div></div>
-          <div>HANDLING: <span id="st-hand">84</span>/100</div>
-          <div class="bar-bg"><div id="bar-hand" class="bar-fill" style="width:84%"></div></div>
+          <div>TOP SPEED: <span id="st-speed">145</span> KM/H</div>
+          <div class="bar-bg"><div id="bar-speed" class="bar-fill" style="width:35%"></div></div>
+          <div>ACCELERATION (0-100): <span id="st-accel">8.9</span>s</div>
+          <div class="bar-bg"><div id="bar-accel" class="bar-fill" style="width:25%"></div></div>
+          <div>HANDLING: <span id="st-hand">65</span>/100</div>
+          <div class="bar-bg"><div id="bar-hand" class="bar-fill" style="width:65%"></div></div>
           <div style="margin-top:4px;color:#a29bfe;">
-            <span id="st-hp">625</span> HP • <span id="st-drive">RWD</span> • <span id="st-weight">1575</span> KG <span id="st-flag">🇩🇪</span>
+            <span id="st-hp">110</span> HP • <span id="st-drive">RWD</span> • <span id="st-weight">680</span> KG <span id="st-flag">🇯🇵</span>
           </div>
         </div>
 
         <div class="mode-grid">
-          <button class="mode-btn m-solo" id="pick-solo">
+          <button type="button" class="mode-btn m-solo" id="pick-solo">
             <span>1️⃣ RACE ALONE (VS AI BOT)</span><span>▶</span>
           </button>
-          <button class="mode-btn m-multi" id="pick-multi">
+          <button type="button" class="mode-btn m-multi" id="pick-multi">
             <span>2️⃣ 2-PLAYER MULTIPLAYER RACE</span><span>▶</span>
           </button>
-          <button class="mode-btn m-open" id="pick-openworld">
+          <button type="button" class="mode-btn m-open" id="pick-openworld">
             <span>3️⃣ OPEN WORLD (FREE ROAM + RACE)</span><span>▶</span>
           </button>
         </div>
@@ -186,23 +187,23 @@
     <div id="mp-wait-bar">
       <div id="mp-players-text" style="font-size:12px;margin-bottom:8px;">Waiting for racers...</div>
       <div style="display:flex;gap:8px;justify-content:center;">
-        <button id="btn-mp-ready" style="background:#0984e3;color:#fff;padding:8px 12px;">✅ READY</button>
-        <button id="btn-mp-start" style="background:#00b894;color:#000;padding:8px 12px;">🏁 START RACE</button>
+        <button type="button" id="btn-mp-ready" style="background:#0984e3;color:#fff;padding:8px 12px;">✅ READY</button>
+        <button type="button" id="btn-mp-start" style="background:#00b894;color:#000;padding:8px 12px;">🏁 START RACE</button>
       </div>
     </div>
 
     <div id="ow-bar">
       <span id="ow-status">FREE ROAM</span>
-      <button id="btn-ow-race" style="background:#ffeaa7;color:#000;padding:5px 10px;">🏁 STREET RACE</button>
+      <button type="button" id="btn-ow-race" style="background:#ffeaa7;color:#000;padding:5px 10px;">🏁 STREET RACE</button>
     </div>
   </div>
 
   <div id="controls">
-    <button class="ctrl-btn" id="btn-left">◀ LEFT<small>[A]</small></button>
-    <button class="ctrl-btn" id="btn-right">▶ RIGHT<small>[D]</small></button>
-    <button class="ctrl-btn" id="btn-brake">🛑 BRAKE<small>[S]</small></button>
-    <button class="ctrl-btn" id="btn-nitro">🔥 NITRO<small>[Shift]</small></button>
-    <button class="ctrl-btn" id="btn-gas">⚡ GAS<small>[W]</small></button>
+    <button type="button" class="ctrl-btn" id="btn-left">◀ LEFT<small>[A]</small></button>
+    <button type="button" class="ctrl-btn" id="btn-right">▶ RIGHT<small>[D]</small></button>
+    <button type="button" class="ctrl-btn" id="btn-brake">🛑 BRAKE<small>[S]</small></button>
+    <button type="button" class="ctrl-btn" id="btn-nitro">🔥 NITRO<small>[Shift]</small></button>
+    <button type="button" class="ctrl-btn" id="btn-gas">⚡ GAS<small>[W]</small></button>
   </div>
 
   <script type="module">
@@ -225,6 +226,43 @@
       hp: 110, drivetrain: "RWD", weight: 680, flag: "🇯🇵", emoji: "🛺"
     }];
     let selectedCar = ownedCars[0];
+
+    function renderCarSelect() {
+      const sel = document.getElementById("car-select");
+      sel.innerHTML = "";
+      ownedCars.forEach((c, idx) => {
+        const opt = document.createElement("option");
+        opt.value = idx;
+        opt.textContent = `${c.emoji} ${c.name} (${c.top_speed} KM/H • ${c.hp} HP)`;
+        if (c.name === selectedCar.name) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      updateCarCard();
+    }
+
+    function updateCarCard() {
+      const c = selectedCar;
+      document.getElementById("car-title").textContent = `${c.emoji} ${c.name}`;
+      document.getElementById("car-rarity").textContent = c.rarity;
+      document.getElementById("car-rarity").style.background = c.color;
+      document.getElementById("st-speed").textContent = c.top_speed;
+      document.getElementById("bar-speed").style.width = Math.min(100, (c.top_speed / 430) * 100) + "%";
+      document.getElementById("st-accel").textContent = c.accel;
+      document.getElementById("bar-accel").style.width = Math.min(100, Math.max(15, (10.5 - c.accel) * 12)) + "%";
+      document.getElementById("st-hand").textContent = c.handling;
+      document.getElementById("bar-hand").style.width = c.handling + "%";
+      document.getElementById("st-hp").textContent = c.hp;
+      document.getElementById("st-drive").textContent = c.drivetrain;
+      document.getElementById("st-weight").textContent = c.weight;
+      document.getElementById("st-flag").textContent = c.flag;
+    }
+
+    document.getElementById("car-select").addEventListener("change", (e) => {
+      selectedCar = ownedCars[parseInt(e.target.value, 10)] || ownedCars[0];
+      updateCarCard();
+    });
+
+    renderCarSelect();
 
     async function initDiscordSDK() {
       const clientId = "{{ client_id }}";
@@ -253,7 +291,7 @@
 
     async function loadPlayerGarage() {
       try {
-        const res = await fetch(`/api/player/${encodeURIComponent(userId)}`);
+        const res = await fetch(/api/player/${encodeURIComponent(userId)});
         const data = await res.json();
         if (data.cars && data.cars.length > 0) {
           ownedCars = data.cars;
@@ -267,39 +305,6 @@
       renderCarSelect();
     }
 
-    function renderCarSelect() {
-      const sel = document.getElementById("car-select");
-      sel.innerHTML = "";
-      ownedCars.forEach((c, idx) => {
-        const opt = document.createElement("option");
-        opt.value = idx;
-        opt.textContent = `${c.emoji} ${c.name} (${c.top_speed} KM/H • ${c.hp} HP)`;
-        if (c.name === selectedCar.name) opt.selected = true;
-        sel.appendChild(opt);
-      });
-      updateCarCard();
-    }
-
-    function updateCarCard() {
-      const c = selectedCar;
-      document.getElementById("car-title").textContent = ${c.emoji} ${c.name};
-      document.getElementById("car-rarity").textContent = c.rarity;
-      document.getElementById("car-rarity").style.background = c.color;
-      document.getElementById("st-speed").textContent = c.top_speed;
-      document.getElementById("bar-speed").style.width = Math.min(100, (c.top_speed / 430) * 100) + "%";
-      document.getElementById("st-accel").textContent = c.accel;
-      document.getElementById("bar-accel").style.width = Math.min(100, Math.max(15, (10.5 - c.accel) * 12)) + "%";
-      document.getElementById("st-hand").textContent = c.handling;
-      document.getElementById("bar-hand").style.width = c.handling + "%";
-      document.getElementById("st-hp").textContent = c.hp;
-      document.getElementById("st-drive").textContent = c.drivetrain;
-      document.getElementById("st-weight").textContent = c.weight;
-      document.getElementById("st-flag").textContent = c.flag;
-    }
-    document.getElementById("car-select").addEventListener("change", (e) => {
-      selectedCar = ownedCars[parseInt(e.target.value, 10)] || ownedCars[0];
-      updateCarCard();
-    });
     let gameMode = "lobby";
     let myProgress = 0;
     let mySpeed = 0;
@@ -314,6 +319,7 @@
     let owStreetRace = { active: false, countdown: 0, checkpoint_x: 1650, checkpoint_y: 350, winner: "" };
     let mpState = { status: "lobby", countdown: 0, winner: null, players: [] };
     const flames = [];
+
     function spawnFlame(x, y, angle, isNitro) {
       for (let i = 0; i < (isNitro ? 4 : 2); i++) {
         flames.push({
@@ -326,7 +332,9 @@
         });
       }
     }
+
     const keys = { gas: false, brake: false, left: false, right: false };
+
     function bindHold(id, prop) {
       const el = document.getElementById(id);
       const on = (e) => { e.preventDefault(); keys[prop] = true; el.classList.add("active"); };
@@ -337,38 +345,48 @@
       el.addEventListener("mouseup", off);
       el.addEventListener("mouseleave", off);
     }
+
     bindHold("btn-gas", "gas");
     bindHold("btn-brake", "brake");
     bindHold("btn-left", "left");
     bindHold("btn-right", "right");
+
     document.getElementById("btn-nitro").addEventListener("click", () => {
       if (nitroTimer <= 0) nitroTimer = 2.0;
     });
+
     window.addEventListener("keydown", (e) => {
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
       if (e.key === "w" || e.key === "W" || e.key === "ArrowUp") keys.gas = true;
       if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") keys.brake = true;
       if (e.key === "a" || e.key === "A" || e.key === "ArrowLeft") keys.left = true;
       if (e.key === "d" || e.key === "D" || e.key === "ArrowRight") keys.right = true;
       if (e.key === "Shift" && nitroTimer <= 0) nitroTimer = 2.0;
     });
+
     window.addEventListener("keyup", (e) => {
       if (e.key === "w" || e.key === "W" || e.key === "ArrowUp") keys.gas = false;
       if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") keys.brake = false;
       if (e.key === "a" || e.key === "A" || e.key === "ArrowLeft") keys.left = false;
       if (e.key === "d" || e.key === "D" || e.key === "ArrowRight") keys.right = false;
     });
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
     function enterMode(mode) {
       gameMode = mode;
       document.getElementById("lobby-overlay").style.display = "none";
       document.getElementById("mp-wait-bar").style.display = mode === "multi" ? "block" : "none";
       document.getElementById("ow-bar").style.display = mode === "openworld" ? "flex" : "none";
       document.getElementById("hdr-mode").textContent = mode.toUpperCase();
+      canvas.focus();
       myProgress = 0;
       mySpeed = 0;
       nitroTimer = 0;
       if (mode === "solo") {
         aiProgress = 0;
-        soloCountdown = 3.0;
+        soloCountdown = 2.0;
         soloWinner = "";
       } else if (mode === "multi") {
         syncMultiplayer("update");
@@ -376,9 +394,11 @@
         syncOpenWorld("move");
       }
     }
+
     document.getElementById("pick-solo").addEventListener("click", () => enterMode("solo"));
     document.getElementById("pick-multi").addEventListener("click", () => enterMode("multi"));
     document.getElementById("pick-openworld").addEventListener("click", () => enterMode("openworld"));
+
     document.getElementById("btn-back-lobby").addEventListener("click", () => {
       gameMode = "lobby";
       document.getElementById("lobby-overlay").style.display = "flex";
@@ -386,6 +406,7 @@
       document.getElementById("ow-bar").style.display = "none";
       document.getElementById("hdr-mode").textContent = "LOBBY";
     });
+
     async function syncMultiplayer(action = "update") {
       if (gameMode !== "multi") return;
       try {
@@ -414,8 +435,10 @@
           "LOBBY: " + mpState.players.map(p => ${p.ready ? "✅" : "⏳"} ${p.username} (${p.car.name})).join(" | ");
       } catch (e) {}
     }
+
     document.getElementById("btn-mp-ready").addEventListener("click", () => syncMultiplayer("ready"));
     document.getElementById("btn-mp-start").addEventListener("click", () => syncMultiplayer("start"));
+
     async function syncOpenWorld(action = "move") {
       if (gameMode !== "openworld") return;
       try {
@@ -442,16 +465,18 @@
           : PLAYERS ONLINE: ${owPlayers.length};
       } catch (e) {}
     }
+
     document.getElementById("btn-ow-race").addEventListener("click", () => syncOpenWorld("start_street_race"));
+
     setInterval(() => {
       if (gameMode === "multi") syncMultiplayer("update");
       if (gameMode === "openworld") syncOpenWorld("move");
     }, 350);
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
+
     function resize() { canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; }
     window.addEventListener("resize", resize);
     resize();
+
     function drawPixelCar(x, y, angle, color, label, firing, isNitro) {
       ctx.save();
       ctx.translate(x, y);
@@ -481,14 +506,17 @@
       ctx.fillText(label, x, y - 18);
       ctx.textAlign = "left";
     }
+
     let lastTime = performance.now();
+
     function loop(now) {
       const dt = Math.min(0.1, (now - lastTime) / 1000);
       lastTime = now;
       if (nitroTimer > 0) nitroTimer -= dt;
       const isFiring = keys.gas || nitroTimer > 0;
-      const accelPower = (11.5 - selectedCar.accel) * 18;
+      const accelPower = Math.max(40, (11.5 - selectedCar.accel) * 24);
       const maxSpd = nitroTimer > 0 ? selectedCar.top_speed * 1.25 : selectedCar.top_speed;
+
       if (gameMode === "solo") {
         if (soloCountdown > 0) {
           soloCountdown -= dt;
@@ -496,8 +524,8 @@
           if (isFiring) mySpeed = Math.min(maxSpd, mySpeed + accelPower * dt);
           else mySpeed = Math.max(0, mySpeed - 45 * dt);
           if (keys.brake) mySpeed = Math.max(0, mySpeed - 140 * dt);
-          myProgress = Math.min(100, myProgress + (mySpeed / 2100) * dt * 100);
-          aiProgress = Math.min(100, aiProgress + ((180 + Math.random() * 60) / 2100) * dt * 100);
+          myProgress = Math.min(100, myProgress + (mySpeed / 1800) * dt * 100);
+          aiProgress = Math.min(100, aiProgress + ((165 + Math.random() * 55) / 1800) * dt * 100);
           if (myProgress >= 100) soloWinner = username;
           else if (aiProgress >= 100) soloWinner = "AI RIVAL BOT";
         }
@@ -506,7 +534,7 @@
           if (isFiring) mySpeed = Math.min(maxSpd, mySpeed + accelPower * dt);
           else mySpeed = Math.max(0, mySpeed - 45 * dt);
           if (keys.brake) mySpeed = Math.max(0, mySpeed - 140 * dt);
-          myProgress = Math.min(100, myProgress + (mySpeed / 2100) * dt * 100);
+          myProgress = Math.min(100, myProgress + (mySpeed / 1800) * dt * 100);
         }
       } else if (gameMode === "openworld") {
         if (isFiring) mySpeed = Math.min(maxSpd * 1.4, mySpeed + accelPower * 1.5 * dt);
@@ -525,17 +553,19 @@
           if (dist < 55) syncOpenWorld("win_street_race");
         }
       }
+
       document.getElementById("hdr-hud").textContent = ${Math.round(mySpeed)} KM/H${nitroTimer > 0 ? " 🔥" : ""};
       ctx.fillStyle = "#161b29";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
       if (gameMode === "solo" || gameMode === "multi") {
         if (customBgImg && customBgImg.complete && customBgImg.naturalWidth > 0) {
           ctx.drawImage(customBgImg, 0, 0, canvas.width, canvas.height);
         }
         const racers = gameMode === "solo"
           ? [
-              { username: username, car: selectedCar, progress: myProgress, firing: isFiring },
-              { username: "AI Rival", car: { color: "#e84393" }, progress: aiProgress, firing: true }
+              { user_id: userId, username: username, car: selectedCar, progress: myProgress, firing: isFiring },
+              { user_id: "ai", username: "AI Rival", car: { color: "#e84393" }, progress: aiProgress, firing: soloCountdown <= 0 }
             ]
           : (mpState.players.length ? mpState.players : [{ user_id: userId, username: username, car: selectedCar, progress: myProgress, firing: isFiring }]);
         const laneH = Math.min(85, (canvas.height - 60) / Math.max(2, racers.length));
@@ -554,6 +584,15 @@
           ctx.fillStyle = (Math.floor(y / 10) % 2 === 0) ? "#fff" : "#000";
           ctx.fillRect(finishX, y, 10, 10);
         }
+        if (gameMode === "solo" && soloCountdown > 0) {
+          ctx.fillStyle = "rgba(0,0,0,0.55)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "#ff7675";
+          ctx.font = "bold 48px Courier New";
+          ctx.textAlign = "center";
+          ctx.fillText(Math.ceil(soloCountdown), canvas.width / 2, canvas.height / 2);
+          ctx.textAlign = "left";
+        }
         const winName = gameMode === "solo" ? soloWinner : (mpState.status === "finished" ? mpState.winner : "");
         if (winName) {
           ctx.fillStyle = "rgba(0,0,0,0.72)";
@@ -561,7 +600,10 @@
           ctx.fillStyle = "#ffeaa7";
           ctx.font = "bold 24px Courier New";
           ctx.textAlign = "center";
-          ctx.fillText(🏆 WINNER: ${winName}!, canvas.width / 2, canvas.height / 2);
+          ctx.fillText(🏆 WINNER: ${winName}!, canvas.width / 2, canvas.height / 2 - 10);
+          ctx.font = "14px Courier New";
+          ctx.fillStyle = "#fff";
+          ctx.fillText("Click screen to race again", canvas.width / 2, canvas.height / 2 + 22);
           ctx.textAlign = "left";
         }
       } else if (gameMode === "openworld") {
@@ -608,6 +650,13 @@
       }
       requestAnimationFrame(loop);
     }
+
+    canvas.addEventListener("click", () => {
+      canvas.focus();
+      if (gameMode === "solo" && soloWinner) enterMode("solo");
+      if (gameMode === "multi" && mpState.status === "finished") syncMultiplayer("reset");
+    });
+
     (async () => {
       await initDiscordSDK();
       await loadPlayerGarage();
