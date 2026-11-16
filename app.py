@@ -124,12 +124,25 @@ CAR_CATALOG = {
 
 app = Flask(__name__)
 
+@app.after_request
+def allow_discord_iframe(response):
+    response.headers["Content-Security-Policy"] = (
+        "frame-ancestors 'self' https://discord.com https://*.discord.com https://*.discordsays.com;"
+    )
+    response.headers.pop("X-Frame-Options", None)
+    return response
+
+
 RACE_ROOMS = {}
+OPEN_WORLD_PLAYERS = {}
 ROOMS_LOCK = threading.RLock()
 
 
 def is_owner(user_id) -> bool:
-    return int(user_id) == OWNER_ID
+    try:
+        return int(user_id) == OWNER_ID
+    except (TypeError, ValueError):
+        return False
 
 
 def can_manage_money(interaction: discord.Interaction) -> bool:
@@ -144,9 +157,9 @@ def get_car_specs(item_name: str):
     key = item_name.strip().lower()
     if key in CAR_CATALOG:
         return CAR_CATALOG[key]
-    for k, v in CAR_CATALOG.items():
+    for k, value in CAR_CATALOG.items():
         if k in key or key in k:
-            return v
+            return value
     return None
 
 
@@ -158,13 +171,16 @@ def get_user_cars(user_id):
     inv = profile.get("inventory") or []
     owned = []
     seen = set()
+
     for item in inv:
         specs = get_car_specs(item)
         if specs and specs["name"] not in seen:
             owned.append(specs)
             seen.add(specs["name"])
+
     if not owned:
         owned.append(CAR_CATALOG["starter kart"])
+
     return owned
 
 
@@ -194,12 +210,11 @@ def get_profile(user_id):
 
 def update_balance(user_id, wallet_change=0, bank_change=0):
     if is_owner(user_id):
-        get_profile(user_id)
         return
 
     profile = get_profile(user_id)
-    new_wallet = max(0, profile["wallet"] + wallet_change)
-    new_bank = max(0, profile["bank"] + bank_change)
+    new_wallet = max(0, int(profile.get("wallet", 0)) + wallet_change)
+    new_bank = max(0, int(profile.get("bank", 0)) + bank_change)
 
     supabase.table("users").update({
         "wallet": new_wallet,
@@ -209,11 +224,11 @@ def update_balance(user_id, wallet_change=0, bank_change=0):
 
 def add_to_inventory(user_id, item_name):
     profile = get_profile(user_id)
-    inv = list(profile.get("inventory") or [])
-    inv.append(item_name)
+    inventory = list(profile.get("inventory") or [])
+    inventory.append(item_name)
 
     supabase.table("users").update({
-        "inventory": inv
+        "inventory": inventory
     }).eq("user_id", str(user_id)).execute()
 
 
@@ -233,12 +248,23 @@ def update_work_timestamp(user_id):
 
 def get_shop_items():
     res = supabase.table("shop").select("*").execute()
-    return res.data or []
+    items = res.data or []
+    return [item for item in items if item.get("name") != "__RACE_BG__"]
+
+
+def get_race_background_url():
+    try:
+        res = supabase.table("shop").select("*").eq("name", "__RACE_BG__").execute()
+        if res.data and res.data[0].get("image_url"):
+            return res.data[0]["image_url"]
+    except Exception:
+        pass
+    return ""
 
 
 def build_car_card_embed(car: dict, image_url: str = ""):
-    def bar(val, max_val):
-        filled = max(1, min(10, round((val / max_val) * 10)))
+    def bar(value, max_value):
+        filled = max(1, min(10, round((value / max_value) * 10)))
         return "🟪" * filled + "⬛" * (10 - filled)
 
     accel_score = max(10, min(100, int((10.5 - car["accel"]) * 12)))
@@ -246,14 +272,13 @@ def build_car_card_embed(car: dict, image_url: str = ""):
         title=f"{car['flag']} {car['name'].upper()}  •  [{car['rarity']}]",
         color=int(car["color"].replace("#", ""), 16)
     )
-    stats_text = (
+    embed.description = (
         f"⏱️ **TOP SPEED:** `{car['top_speed']} KM/H`\n{bar(car['top_speed'], 430)}\n"
         f"🚀 **ACCELERATION:** `{car['accel']}s (0-100)`\n{bar(accel_score, 100)}\n"
         f"🛞 **HANDLING:** `{car['handling']}/100`\n{bar(car['handling'], 100)}\n"
         f"🛑 **BRAKING:** `{car['braking']}/100`\n{bar(car['braking'], 100)}\n\n"
         f"🐎 **HORSEPOWER:** `{car['hp']} HP`  |  ⚙️ **DRIVETRAIN:** `{car['drivetrain']}`  |  ⚖️ **WEIGHT:** `{car['weight']} KG`"
     )
-    embed.description = stats_text
     if image_url:
         embed.set_thumbnail(url=image_url)
     return embed
@@ -261,7 +286,49 @@ def build_car_card_embed(car: dict, image_url: str = ""):
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    if request.method == "GET" and request.args.get("frame_id"):
+        return render_template(
+            "activity.html",
+            client_id=DISCORD_CLIENT_ID,
+            room_id=request.args.get("channel_id", "global"),
+            bet="0",
+            bg_url=get_race_background_url()
+        )
+
     if request.method == "POST":
+        form_type = request.form.get("form_type", "item")
+
+        if form_type == "background":
+            bg_file = request.files.get("bg_image")
+            bg_link = request.form.get("bg_url", "").strip()
+            final_bg_url = bg_link
+
+            if bg_file and bg_file.filename:
+                safe_name = secure_filename(bg_file.filename)
+                ext = safe_name.rsplit(".", 1)[-1].lower() if "." in safe_name else ""
+                if ext in ALLOWED_EXTENSIONS:
+                    filename = f"race_bg_{int(time.time())}.{ext}"
+                    file_bytes = bg_file.read()
+                    try:
+                        storage = supabase.storage.from_("shop-images")
+                        storage.upload(
+                            filename,
+                            file_bytes,
+                            {"content-type": bg_file.mimetype}
+                        )
+                        final_bg_url = storage.get_public_url(filename)
+                    except Exception as error:
+                        print(f"Background upload warning: {error}")
+
+            if final_bg_url:
+                supabase.table("shop").upsert({
+                    "name": "__RACE_BG__",
+                    "price": 0,
+                    "image_url": final_bg_url
+                }).execute()
+
+            return redirect(url_for("index"))
+
         name = request.form.get("name", "").strip()
         price = request.form.get("price", "").strip()
         image_file = request.files.get("image")
@@ -277,34 +344,33 @@ def index():
             return "Invalid price.", 400
 
         image_url = ""
-
         if image_file and image_file.filename:
             safe_name = secure_filename(image_file.filename)
             ext = safe_name.rsplit(".", 1)[-1].lower() if "." in safe_name else ""
-
             if ext in ALLOWED_EXTENSIONS:
-                filename = f"item_{int(time.time())}_{random.randint(1000, 9999)}.{ext}"
+                filename = f"item_{int(time.time())}{random.randint(1000, 9999)}.{ext}"
                 file_bytes = image_file.read()
                 try:
-                    supabase.storage.from_("shop-images").upload(
+                    storage = supabase.storage.from_("shop-images")
+                    storage.upload(
                         filename,
                         file_bytes,
                         {"content-type": image_file.mimetype}
                     )
-                    image_url = supabase.storage.from_("shop-images").get_public_url(filename)
-                except Exception as e:
-                    print(f"Image upload warning: {e}")
+                    image_url = storage.get_public_url(filename)
+                except Exception as error:
+                    print(f"Image upload warning: {error}")
 
         supabase.table("shop").upsert({
             "name": name,
             "price": item_price,
             "image_url": image_url
         }).execute()
-
         return redirect(url_for("index"))
 
     shop_items = get_shop_items()
-    return render_template("admin.html", shop_items=shop_items)
+    bg_url = get_race_background_url()
+    return render_template("admin.html", shop_items=shop_items, bg_url=bg_url)
 
 
 @app.route("/activity")
@@ -315,7 +381,8 @@ def activity():
         "activity.html",
         client_id=DISCORD_CLIENT_ID,
         room_id=room_id,
-        bet=bet
+        bet=bet,
+        bg_url=get_race_background_url()
     )
 
 
@@ -326,32 +393,33 @@ def api_token():
     if not code:
         return jsonify({"error": "Missing OAuth code"}), 400
 
-    resp = requests.post(
-        "https://discord.com/api/oauth2/token",
-        data={
-            "client_id": DISCORD_CLIENT_ID,
-            "client_secret": DISCORD_CLIENT_SECRET,
-            "grant_type": "authorization_code",
-            "code": code
-        },
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        timeout=10
-    )
-    return jsonify(resp.json()), resp.status_code
+    try:
+        response = requests.post(
+            "https://discord.com/api/oauth2/token",
+            data={
+                "client_id": DISCORD_CLIENT_ID,
+                "client_secret": DISCORD_CLIENT_SECRET,
+                "grant_type": "authorization_code",
+                "code": code
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=10
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.RequestException:
+        return jsonify({"error": "Could not contact Discord OAuth service"}), 502
 
 
 @app.route("/api/player/<user_id>")
 def api_player(user_id):
     cars = get_user_cars(user_id)
-    if is_owner(user_id):
-        wallet = 999999999
-    else:
-        wallet = get_profile(user_id)["wallet"]
+    wallet = 999999999 if is_owner(user_id) else get_profile(user_id)["wallet"]
     return jsonify({
         "user_id": str(user_id),
         "wallet": wallet,
         "is_owner": is_owner(user_id),
-        "cars": cars
+        "cars": cars,
+        "bg_url": get_race_background_url()
     })
 
 
@@ -363,7 +431,7 @@ def api_room_sync(room_id):
     car_name = str(payload.get("car_name", "Starter Kart"))
     progress = float(payload.get("progress", 0.0))
     speed = int(payload.get("speed", 0))
-    bet = int(payload.get("bet", 0))
+    bet = max(0, int(payload.get("bet", 0)))
     action = payload.get("action", "update")
     now = time.time()
 
@@ -378,8 +446,8 @@ def api_room_sync(room_id):
         })
 
         room["players"] = {
-            k: v for k, v in room["players"].items()
-            if now - v.get("last_seen", 0) < 25
+            key: value for key, value in room["players"].items()
+            if now - value.get("last_seen", 0) < 20
         }
 
         if not room["players"]:
@@ -390,53 +458,56 @@ def api_room_sync(room_id):
 
         if uid:
             specs = get_car_specs(car_name) or CAR_CATALOG["starter kart"]
-            p = room["players"].setdefault(uid, {
+            player = room["players"].setdefault(uid, {
                 "user_id": uid,
                 "username": username,
                 "car": specs,
                 "progress": 0.0,
                 "speed": 0,
+                "firing": False,
                 "ready": False,
                 "last_seen": now
             })
-            p["username"] = username
-            p["car"] = specs
-            p["last_seen"] = now
+            player["username"] = username
+            player["car"] = specs
+            player["firing"] = bool(payload.get("firing", False))
+            player["last_seen"] = now
 
             if action == "ready":
-                p["ready"] = not p["ready"]
+                player["ready"] = not player["ready"]
             elif action == "start" and len(room["players"]) >= 1:
                 room["status"] = "racing"
                 room["start_time"] = now + 3.0
                 room["winner"] = None
                 room["paid"] = False
-                for pl in room["players"].values():
-                    pl["progress"] = 0.0
-                    pl["speed"] = 0
+                for current_player in room["players"].values():
+                    current_player["progress"] = 0.0
+                    current_player["speed"] = 0
             elif action == "reset":
                 room["status"] = "lobby"
                 room["winner"] = None
                 room["paid"] = False
-                for pl in room["players"].values():
-                    pl["progress"] = 0.0
-                    pl["speed"] = 0
-                    pl["ready"] = False
+                for current_player in room["players"].values():
+                    current_player["progress"] = 0.0
+                    current_player["speed"] = 0
+                    current_player["ready"] = False
 
             if room["status"] == "racing":
-                p["progress"] = max(p["progress"], progress)
-                p["speed"] = speed
-                if p["progress"] >= 100.0 and not room["winner"]:
-                    room["winner"] = uid
+                player["progress"] = max(player["progress"], progress)
+                player["speed"] = speed
+
+                if player["progress"] >= 100.0 and not room["winner"]:
+                    room["winner"] = username
                     room["status"] = "finished"
 
                     if not room["paid"] and room["bet"] > 0 and len(room["players"]) >= 2:
                         room["paid"] = True
                         wager = room["bet"]
-                        losers = [k for k in room["players"] if k != uid]
+                        losers = [key for key in room["players"] if key != uid]
                         pot = wager * len(losers)
                         update_balance(uid, wallet_change=pot)
-                        for lid in losers:
-                            update_balance(lid, wallet_change=-wager)
+                        for loser_id in losers:
+                            update_balance(loser_id, wallet_change=-wager)
 
         return jsonify({
             "room_id": room_id,
@@ -448,22 +519,82 @@ def api_room_sync(room_id):
         })
 
 
+@app.route("/api/openworld/<world_id>/sync", methods=["POST"])
+def api_openworld_sync(world_id):
+    payload = request.get_json(silent=True) or {}
+    uid = str(payload.get("user_id", ""))
+    username = str(payload.get("username", "Driver"))[:20]
+    car_name = str(payload.get("car_name", "Starter Kart"))
+    x = float(payload.get("x", 600.0))
+    y = float(payload.get("y", 600.0))
+    angle = float(payload.get("angle", 0.0))
+    speed = float(payload.get("speed", 0.0))
+    firing = bool(payload.get("firing", False))
+    action = payload.get("action", "move")
+    now = time.time()
+
+    with ROOMS_LOCK:
+        world = OPEN_WORLD_PLAYERS.setdefault(world_id, {
+            "players": {},
+            "street_race": {
+                "active": False,
+                "start_time": 0,
+                "checkpoint_x": 1650,
+                "checkpoint_y": 350,
+                "winner": ""
+            }
+        })
+
+        world["players"] = {
+            key: value for key, value in world["players"].items()
+            if now - value.get("last_seen", 0) < 12
+        }
+
+        if uid:
+            specs = get_car_specs(car_name) or CAR_CATALOG["starter kart"]
+            world["players"][uid] = {
+                "user_id": uid,
+                "username": username,
+                "car": specs,
+                "x": x,
+                "y": y,
+                "angle": angle,
+                "speed": speed,
+                "firing": firing,
+                "last_seen": now
+            }
+
+        street_race = world["street_race"]
+
+        if action == "start_street_race":
+            street_race["active"] = True
+            street_race["start_time"] = now + 3.0
+            street_race["winner"] = ""
+            street_race["checkpoint_x"] = 1750 if x < 1000 else 250
+            street_race["checkpoint_y"] = 1450 if y < 900 else 300
+        elif action == "win_street_race" and street_race["active"] and not street_race["winner"]:
+            street_race["winner"] = username
+            street_race["active"] = False
+
+        return jsonify({
+            "players": list(world["players"].values()),
+            "street_race": {
+                "active": street_race["active"],
+                "countdown": max(0.0, round(street_race["start_time"] - now, 2)) if street_race["active"] else 0.0,
+                "checkpoint_x": street_race["checkpoint_x"],
+                "checkpoint_y": street_race["checkpoint_y"],
+                "winner": street_race["winner"]
+            }
+        })
+
+
 class EconomyBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        existing_commands = await self.http.get_global_commands(self.application_id)
-        entry_points = [cmd for cmd in existing_commands if cmd.get("type") == 4]
-
-        if entry_points:
-            payload = [cmd.to_dict(self.tree) for cmd in self.tree.get_commands()]
-            payload.extend(entry_points)
-            await self.http.bulk_upsert_global_commands(self.application_id, payload=payload)
-        else:
-            await self.tree.sync()
-
+        await self.tree.sync()
         print("Slash commands synchronized.")
 
 
@@ -492,13 +623,13 @@ async def addmoney(interaction: discord.Interaction, member: discord.Member, amo
 
     if is_owner(member.id):
         return await interaction.response.send_message(
-            "👑 The bot owner already has **∞ unlimited coins**!",
+            "👑 The bot owner already has ∞ unlimited coins!",
             ephemeral=True
         )
 
     update_balance(member.id, wallet_change=amount)
     await interaction.response.send_message(
-        f"💸 Added **{amount} coins** to **{member.display_name}**'s wallet!"
+        f"💸 Added {amount} coins to {member.display_name}'s wallet!"
     )
 
 
@@ -518,7 +649,6 @@ async def bal(interaction: discord.Interaction, member: discord.Member = None):
         return await interaction.response.send_message(embed=embed)
 
     profile = get_profile(target.id)
-
     embed = discord.Embed(
         title=f"🏦 {target.name}'s Financial Portfolio",
         color=discord.Color.gold()
@@ -530,7 +660,6 @@ async def bal(interaction: discord.Interaction, member: discord.Member = None):
         value=f"{profile['wallet'] + profile['bank']} coins",
         inline=False
     )
-
     await interaction.response.send_message(embed=embed)
 
 
@@ -539,7 +668,7 @@ async def bal(interaction: discord.Interaction, member: discord.Member = None):
 async def deposit(interaction: discord.Interaction, amount: str):
     if is_owner(interaction.user.id):
         return await interaction.response.send_message(
-            "👑 As the bot owner, you already have **∞ unlimited coins** in both your wallet and bank!"
+            "👑 As the bot owner, you already have ∞ unlimited coins in both your wallet and bank!"
         )
 
     profile = get_profile(interaction.user.id)
@@ -556,27 +685,15 @@ async def deposit(interaction: discord.Interaction, amount: str):
                 ephemeral=True
             )
 
-    if target_amount <= 0:
-        return await interaction.response.send_message(
-            "❌ Amount must be greater than zero.",
-            ephemeral=True
-        )
-
-    if target_amount > wallet:
-        return await interaction.response.send_message(
-            "❌ You don't have enough coins in your wallet.",
-            ephemeral=True
-        )
+    if target_amount <= 0 or target_amount > wallet:
+        return await interaction.response.send_message("❌ Invalid deposit amount.", ephemeral=True)
 
     update_balance(
         interaction.user.id,
         wallet_change=-target_amount,
         bank_change=target_amount
     )
-
-    await interaction.response.send_message(
-        f"📥 Deposited **{target_amount} coins** into your bank!"
-    )
+    await interaction.response.send_message(f"📥 Deposited {target_amount} coins into your bank!")
 
 
 @bot.tree.command(name="withdraw", description="Withdraws coins from your bank.")
@@ -584,7 +701,7 @@ async def deposit(interaction: discord.Interaction, amount: str):
 async def withdraw(interaction: discord.Interaction, amount: str):
     if is_owner(interaction.user.id):
         return await interaction.response.send_message(
-            "👑 As the bot owner, you already have **∞ unlimited coins** in your wallet!"
+            "👑 As the bot owner, you already have ∞ unlimited coins in your wallet!"
         )
 
     profile = get_profile(interaction.user.id)
@@ -601,27 +718,15 @@ async def withdraw(interaction: discord.Interaction, amount: str):
                 ephemeral=True
             )
 
-    if target_amount <= 0:
-        return await interaction.response.send_message(
-            "❌ Amount must be greater than zero.",
-            ephemeral=True
-        )
-
-    if target_amount > bank:
-        return await interaction.response.send_message(
-            "❌ You don't have enough coins in your bank.",
-            ephemeral=True
-        )
+    if target_amount <= 0 or target_amount > bank:
+        return await interaction.response.send_message("❌ Invalid withdrawal amount.", ephemeral=True)
 
     update_balance(
         interaction.user.id,
         wallet_change=target_amount,
         bank_change=-target_amount
     )
-
-    await interaction.response.send_message(
-        f"📤 Withdrew **{target_amount} coins** from your bank!"
-    )
+    await interaction.response.send_message(f"📤 Withdrew {target_amount} coins from your bank!")
 
 
 @bot.tree.command(name="work", description="Work your current job to earn coins.")
@@ -629,14 +734,13 @@ async def work(interaction: discord.Interaction):
     profile = get_profile(interaction.user.id)
     job_key = profile["job"]
     job_info = JOBS_LIST[job_key]
-
     now = int(time.time())
     elapsed = now - profile["last_work"]
 
     if elapsed < job_info["cooldown"] and not is_owner(interaction.user.id):
         remaining = job_info["cooldown"] - elapsed
         return await interaction.response.send_message(
-            f"⏳ You are tired! Wait **{remaining} seconds** before working again.",
+            f"⏳ You are tired! Wait {remaining} seconds before working again.",
             ephemeral=True
         )
 
@@ -646,17 +750,18 @@ async def work(interaction: discord.Interaction):
 
     if is_owner(interaction.user.id):
         return await interaction.response.send_message(
-            f"💼 You worked as a **{job_key.title()}**! (Balance remains **∞ Unlimited**)"
+            f"💼 You worked as a {job_key.title()}! (Balance remains ∞ Unlimited)"
         )
 
     await interaction.response.send_message(
-        f"💼 You worked as a **{job_key.title()}** and earned **{earnings} coins**!"
+        f"💼 You worked as a {job_key.title()} and earned {earnings} coins!"
     )
 
 
 @bot.tree.command(name="jobs", description="Lists all available jobs.")
 async def jobs(interaction: discord.Interaction):
     embed = discord.Embed(title="💼 Available Jobs", color=discord.Color.blue())
+
     for name, info in JOBS_LIST.items():
         desc_text = info["description"] + " (Cooldown: " + str(info["cooldown"]) + "s)"
         embed.add_field(
@@ -664,6 +769,7 @@ async def jobs(interaction: discord.Interaction):
             value=desc_text,
             inline=False
         )
+
     await interaction.response.send_message(embed=embed)
 
 
@@ -671,38 +777,38 @@ async def jobs(interaction: discord.Interaction):
 @app_commands.describe(job="Name of the job (beggar, gamer, developer)")
 async def apply(interaction: discord.Interaction, job: str):
     job_key = job.lower().strip()
+
     if job_key not in JOBS_LIST:
         return await interaction.response.send_message(
-            "❌ Invalid job. Choose from: `beggar`, `gamer`, `developer`.",
+            "❌ Invalid job. Choose from: beggar, gamer, developer.",
             ephemeral=True
         )
 
     set_user_job(interaction.user.id, job_key)
-    await interaction.response.send_message(
-        f"✅ You are now employed as a **{job_key.title()}**!"
-    )
+    await interaction.response.send_message(f"✅ You are now employed as a {job_key.title()}!")
 
 
 @bot.tree.command(name="shop", description="View items and cars available in the shop.")
 async def shop(interaction: discord.Interaction):
     items = get_shop_items()
+
     if not items:
         return await interaction.response.send_message("🛒 The shop is currently empty!")
 
     embed = discord.Embed(title="🛒 Item & Car Dealership", color=discord.Color.green())
+
     for item in items:
         specs = get_car_specs(item["name"])
         if specs:
-            details = f"[{specs['rarity']}] {specs['top_speed']} KM/H • {specs['hp']} HP • Use `/buy`"
+            details = f"[{specs['rarity']}] {specs['top_speed']} KM/H • {specs['hp']} HP • Use /buy"
         else:
-            details = "Use `/buy` to purchase this item."
+            details = "Use /buy to purchase this item."
+
         embed.add_field(
             name=f"{item['name']} — {item['price']} coins",
             value=details,
             inline=False
         )
-    if items[0].get("image_url"):
-        embed.set_thumbnail(url=items[0]["image_url"])
 
     await interaction.response.send_message(embed=embed)
 
@@ -712,7 +818,7 @@ async def shop(interaction: discord.Interaction):
 async def buy(interaction: discord.Interaction, item_name: str):
     items = get_shop_items()
     selected = next(
-        (i for i in items if i["name"].lower() == item_name.strip().lower()),
+        (item for item in items if item["name"].lower() == item_name.strip().lower()),
         None
     )
 
@@ -729,21 +835,20 @@ async def buy(interaction: discord.Interaction, item_name: str):
                 "❌ You don't have enough coins in your wallet to buy this item.",
                 ephemeral=True
             )
+        update_balance(interaction.user.id, wallet_change=-selected["price"])
 
-    update_balance(interaction.user.id, wallet_change=-selected["price"])
     add_to_inventory(interaction.user.id, selected["name"])
-
     specs = get_car_specs(selected["name"])
     embed = build_car_card_embed(specs, selected.get("image_url", "")) if specs else None
 
     if is_owner(interaction.user.id):
         return await interaction.response.send_message(
-            content=f"👑 You claimed **{selected['name']}** using your **∞ Unlimited Owner Balance**!",
+            content=f"👑 You claimed {selected['name']} using your ∞ Unlimited Owner Balance!",
             embed=embed
         )
 
     await interaction.response.send_message(
-        content=f"🎉 You bought **{selected['name']}** for **{selected['price']} coins**!",
+        content=f"🎉 You bought {selected['name']} for {selected['price']} coins!",
         embed=embed
     )
 
@@ -753,14 +858,15 @@ async def buy(interaction: discord.Interaction, item_name: str):
 async def garage(interaction: discord.Interaction, member: discord.Member = None):
     target = member or interaction.user
     cars = get_user_cars(target.id)
-    embeds = [build_car_card_embed(c) for c in cars[:5]]
+    embeds = [build_car_card_embed(car) for car in cars[:5]]
+
     await interaction.response.send_message(
-        content=f"🏎️ **{target.display_name}'s Garage** ({len(cars)} vehicle(s)):",
+        content=f"🏎️ {target.display_name}'s Garage ({len(cars)} vehicle(s)):",
         embeds=embeds
     )
 
 
-@bot.tree.command(name="inventory", description="View your purchased items.")
+@bot.tree.command(name="inventory", description="View your purchased items and cars.")
 @app_commands.describe(member="The member whose inventory you want to check")
 async def inventory(interaction: discord.Interaction, member: discord.Member = None):
     target = member or interaction.user
@@ -769,14 +875,14 @@ async def inventory(interaction: discord.Interaction, member: discord.Member = N
 
     if not inv:
         return await interaction.response.send_message(
-            f"🎒 **{target.name}** has no items in their inventory."
+            f"🎒 {target.name} has no items in their inventory."
         )
 
     counts = {}
     for item in inv:
         counts[item] = counts.get(item, 0) + 1
 
-    lines = [f"• **{name}** x{qty}" for name, qty in counts.items()]
+    lines = [f"• {name} x{quantity}" for name, quantity in counts.items()]
     embed = discord.Embed(
         title=f"🎒 {target.name}'s Inventory",
         description="\n".join(lines),
@@ -785,48 +891,42 @@ async def inventory(interaction: discord.Interaction, member: discord.Member = N
     await interaction.response.send_message(embed=embed)
 
 
-@bot.tree.command(name="race", description="Start an online 2D pixel race in your Voice Channel (Phone & PC)!")
-@app_commands.describe(bet="Optional coin wager per racer (default 0)")
+@bot.tree.command(
+    name="race",
+    description="Open PIXEL-GP 2D Lobby (Solo Race, 2-Player Race, or Open World)!"
+)
+@app_commands.describe(bet="Optional coin wager for 2-Player Race (default 0)")
 async def race(interaction: discord.Interaction, bet: int = 0):
     if bet < 0:
-        return await interaction.response.send_message(
-            "❌ Bet cannot be negative.",
-            ephemeral=True
-        )
+        return await interaction.response.send_message("❌ Bet cannot be negative.", ephemeral=True)
 
-    if bet > 0 and not is_owner(interaction.user.id):
-        if get_profile(interaction.user.id)["wallet"] < bet:
-            return await interaction.response.send_message(
-                f"❌ You don't have **{bet} coins** in your wallet!",
-                ephemeral=True
-            )
+    voice_channel = interaction.user.voice.channel if interaction.user.voice else None
+    room_id = str(voice_channel.id) if voice_channel else f"guild_{interaction.guild_id or 'global'}"
 
-    vc = interaction.user.voice.channel if interaction.user.voice else None
-    if not vc:
-        return await interaction.response.send_message(
-            "🔊 **Join a Voice Channel first**, then run `/race` to play together on Phone or PC!",
-            ephemeral=True
-        )
+    base_url = RENDER_EXTERNAL_URL or "https://your-app.onrender.com"
+    if not base_url.startswith(("http://", "https://")):
+        base_url = "https://" + base_url
 
-    room_id = str(vc.id)
-    base_url = RENDER_EXTERNAL_URL or ""
-    play_url = f"{base_url}/activity?room={room_id}&bet={bet}&uid={interaction.user.id}&name={interaction.user.display_name}"
+    play_url = (
+        f"{base_url}/activity?room={room_id}&bet={bet}"
+        f"&uid={interaction.user.id}&name={interaction.user.display_name}"
+    )
 
     view = discord.ui.View()
-    if play_url.startswith("http"):
-        view.add_item(discord.ui.Button(
-            label="📱 Play on Phone / Browser",
-            url=play_url,
-            style=discord.ButtonStyle.link
-        ))
+    view.add_item(discord.ui.Button(
+        label="📱 Play on Phone / Browser",
+        url=play_url,
+        style=discord.ButtonStyle.link
+    ))
 
     embed = discord.Embed(
-        title="🏎️ PIXEL-GP 2D // VOICE CHANNEL RACE",
+        title="🕹️ PIXEL-GP 2D // RACING & OPEN WORLD HUB",
         description=(
-            f"🔊 **Voice Channel:** {vc.mention}\n"
-            f"💰 **Entry Bet:** `{bet} coins`\n"
-            f"📱 **Devices:** iPhone, Android, iPad, PC & Mac\n\n"
-            f"Everyone in **{vc.name}** can join the race! Tap **Launch Activity** below or open the **Phone / Browser** link."
+            "Choose your game mode inside the lobby:\n"
+            "• 1️⃣ Solo Pixel Race: Race 1v1 against an AI bot\n"
+            "• 2️⃣ 2-Player Race: Race head-to-head with another member\n"
+            "• 3️⃣ Multiplayer Open World: Free-roam city with friends + instant street races & exhaust fire!\n\n"
+            "Tap Launch Activity or 📱 Play on Phone / Browser below."
         ),
         color=discord.Color.red()
     )
@@ -835,7 +935,10 @@ async def race(interaction: discord.Interaction, bet: int = 0):
         await interaction.response.launch_activity()
         await interaction.followup.send(embed=embed, view=view)
     except Exception:
-        await interaction.response.send_message(embed=embed, view=view)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(embed=embed, view=view)
+        else:
+            await interaction.followup.send(embed=embed, view=view)
 
 
 def run_flask():
