@@ -80,7 +80,6 @@ def get_profile(user_id):
 
 
 def update_balance(user_id, wallet_change=0, bank_change=0):
-    # Owner has unlimited money, so balance never decreases or needs tracking
     if is_owner(user_id):
         get_profile(user_id)
         return
@@ -192,6 +191,33 @@ bot = EconomyBot()
 @bot.event
 async def on_ready():
     print(f"Logged in as: {bot.user}")
+
+
+@bot.tree.command(name="addmoney", description="Owner only: Add coins to a user's wallet.")
+@app_commands.describe(member="The member to give coins to", amount="Amount of coins to add")
+async def addmoney(interaction: discord.Interaction, member: discord.Member, amount: int):
+    if not is_owner(interaction.user.id):
+        return await interaction.response.send_message(
+            "❌ Only the bot owner can use this command.",
+            ephemeral=True
+        )
+
+    if amount <= 0:
+        return await interaction.response.send_message(
+            "❌ Amount must be greater than zero.",
+            ephemeral=True
+        )
+
+    if is_owner(member.id):
+        return await interaction.response.send_message(
+            "👑 You already have **∞ unlimited coins**!",
+            ephemeral=True
+        )
+
+    update_balance(member.id, wallet_change=amount)
+    await interaction.response.send_message(
+        f"💸 Added **{amount} coins** to **{member.display_name}**'s wallet!"
+    )
 
 
 @bot.tree.command(name="bal", description="Checks your wallet and bank balances.")
@@ -454,33 +480,6 @@ async def inventory(interaction: discord.Interaction, member: discord.Member = N
     await interaction.response.send_message(embed=embed)
 
 
-@bot.tree.command(name="addmoney", description="Owner only: Add coins to a user's wallet.")
-@app_commands.describe(member="The member to give coins to", amount="Amount of coins to add")
-async def addmoney(interaction: discord.Interaction, member: discord.Member, amount: int):
-    if not is_owner(interaction.user.id):
-        return await interaction.response.send_message(
-            "❌ Only the bot owner can use this command.",
-            ephemeral=True
-        )
-
-    if amount <= 0:
-        return await interaction.response.send_message(
-            "❌ Amount must be greater than zero.",
-            ephemeral=True
-        )
-
-    if is_owner(member.id):
-        return await interaction.response.send_message(
-            "👑 You already have **∞ unlimited coins**!",
-            ephemeral=True
-        )
-
-    update_balance(member.id, wallet_change=amount)
-    await interaction.response.send_message(
-        f"💸 Added **{amount} coins** to **{member.display_name}**'s wallet!"
-    )
-
-
 # --- 1V1 PIXEL RACING COMMAND ---
 
 class RaceAcceptView(discord.ui.View):
@@ -607,7 +606,6 @@ async def race(interaction: discord.Interaction, opponent: discord.Member, bet: 
     if not view.accepted:
         return
 
-    # Re-verify wallets right before starting
     if bet > 0:
         p1_ok = is_owner(interaction.user.id) or get_profile(interaction.user.id)["wallet"] >= bet
         p2_ok = is_owner(opponent.id) or get_profile(opponent.id)["wallet"] >= bet
@@ -656,7 +654,6 @@ async def race(interaction: discord.Interaction, opponent: discord.Member, bet: 
         )
         await asyncio.sleep(1.2)
 
-    # Determine winner
     if p1_pos >= track_len and p2_pos >= track_len:
         if p1_pos > p2_pos:
             winner, loser = interaction.user, opponent
