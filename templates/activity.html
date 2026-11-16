@@ -1,124 +1,659 @@
 
-function drawPixelCar(x, y, angle, color, label, firing, isNitro) {
-  ctx.save();
-  ctx.translate(Math.round(x), Math.round(y));
-  ctx.rotate(angle);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>PIXEL-GP 2D // Pixel Car Racer</title>
+<style>
+*{box-sizing:border-box;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+body{margin:0;background:#0b0e17;color:white;font-family:'Courier New',monospace;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+header{background:#14192b;border-bottom:2px solid #6c5ce7;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:12px;z-index:20}
+.badge{background:#6c5ce7;padding:3px 8px;border-radius:4px;font-weight:bold}
+#main{flex:1;position:relative;overflow:hidden}
+canvas{width:100%;height:100%;display:block;image-rendering:pixelated;outline:none}
+#lobby-overlay{position:absolute;inset:0;background:rgba(11,14,23,.94);display:flex;align-items:center;justify-content:center;padding:12px;z-index:15;overflow-y:auto}
+.card{background:#161b2e;border:2px solid #4834d4;border-radius:10px;padding:14px;width:100%;max-width:460px;box-shadow:0 0 25px rgba(108,92,231,.4)}
+.car-stats{margin-top:8px;font-size:11px;background:#0f1322;padding:8px;border-radius:6px}
+.bar-bg{background:#262d47;height:7px;border-radius:4px;overflow:hidden;margin-bottom:5px}
+.bar-fill{background:#a29bfe;height:100%;transition:width .25s}
+select,button{font-family:'Courier New',monospace;font-weight:bold;border-radius:6px;border:none;cursor:pointer}
+select{width:100%;padding:9px;background:#222942;color:#fff;font-size:13px;margin-top:6px}
+.mode-grid{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
+.mode-btn{padding:12px;text-align:left;color:#fff;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.mode-btn:hover{filter:brightness(1.15)}
+.m-solo{background:#0984e3}.m-multi{background:#00b894;color:#000}.m-open{background:#e17055}
+#mp-wait-bar,#ow-bar{display:none;position:absolute;left:50%;transform:translateX(-50%);z-index:12;text-align:center}
+#mp-wait-bar{top:10px;background:rgba(20,25,43,.95);border:2px solid #00b894;padding:10px 14px;border-radius:8px;width:92%;max-width:440px}
+#ow-bar{top:10px;background:rgba(20,25,43,.9);border:2px solid #e17055;padding:6px 12px;border-radius:8px;gap:8px;align-items:center;font-size:12px}
+#controls{background:#14192b;border-top:2px solid #2d3554;padding:8px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.2fr;gap:6px;height:82px}
+.ctrl-btn{font-size:13px;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px}
+.ctrl-btn:active,.ctrl-btn.active{transform:scale(.95);filter:brightness(1.25)}
+#btn-left,#btn-right{background:#2d3436}#btn-brake{background:#d63031}#btn-nitro{background:#e17055}#btn-gas{background:#00b894;color:#000;font-size:15px}
+</style>
+</head>
+<body>
+<header>
+<div><span class="badge">PIXEL-GP 2D</span> <span id="hdr-mode">LOBBY</span></div>
+<div id="hdr-hud">0 KM/H</div>
+<button id="btn-back-lobby" style="background:#d63031;color:#fff;padding:4px 8px;font-size:11px">LOBBY</button>
+</header>
 
-  // Pixel-art exhaust flames
-  if (firing) {
-    const flameLength = isNitro
-      ? 25 + Math.random() * 15
-      : 12 + Math.random() * 8;
+<div id="main">
+<canvas id="gameCanvas" tabindex="0"></canvas>
 
-    ctx.fillStyle = isNitro ? "#00cec9" : "#ff7675";
-    ctx.fillRect(-19 - flameLength, -6, flameLength, 5);
-    ctx.fillRect(-19 - flameLength, 2, flameLength, 5);
+<div id="lobby-overlay">
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<strong id="car-title" style="font-size:17px">Starter Kart</strong>
+<span id="car-rarity" class="badge">COMMON</span>
+</div>
+<select id="car-select"></select>
+<div class="car-stats">
+<div>TOP SPEED: <span id="st-speed">145</span> KM/H</div>
+<div class="bar-bg"><div id="bar-speed" class="bar-fill" style="width:35%"></div></div>
+<div>ACCELERATION (0-100): <span id="st-accel">8.9</span>s</div>
+<div class="bar-bg"><div id="bar-accel" class="bar-fill" style="width:25%"></div></div>
+<div>HANDLING: <span id="st-hand">65</span>/100</div>
+<div class="bar-bg"><div id="bar-hand" class="bar-fill" style="width:65%"></div></div>
+<div style="margin-top:4px;color:#a29bfe">
+<span id="st-hp">110</span> HP • <span id="st-drive">RWD</span> • <span id="st-weight">680</span> KG <span id="st-flag">🇯🇵</span>
+</div>
+</div>
+<div class="mode-grid">
+<button class="mode-btn m-solo" id="pick-solo"><span>1️⃣ RACE ALONE (VS AI BOT)</span><span>▶</span></button>
+<button class="mode-btn m-multi" id="pick-multi"><span>2️⃣ 2-PLAYER MULTIPLAYER RACE</span><span>▶</span></button>
+<button class="mode-btn m-open" id="pick-openworld"><span>3️⃣ OPEN WORLD (FREE ROAM + RACE)</span><span>▶</span></button>
+</div>
+</div>
+</div>
 
-    ctx.fillStyle = "#ffeaa7";
-    ctx.fillRect(-19 - flameLength * 0.65, -5, flameLength * 0.65, 3);
-    ctx.fillRect(-19 - flameLength * 0.65, 3, flameLength * 0.65, 3);
-  }
+<div id="mp-wait-bar">
+<div id="mp-players-text" style="font-size:12px;margin-bottom:8px">Waiting for racers...</div>
+<div style="display:flex;gap:8px;justify-content:center">
+<button id="btn-mp-ready" style="background:#0984e3;color:#fff;padding:8px 12px">✅ READY</button>
+<button id="btn-mp-start" style="background:#00b894;color:#000;padding:8px 12px">🏁 START RACE</button>
+</div>
+</div>
 
-  const body = color || "#e74c3c";
+<div id="ow-bar">
+<span id="ow-status">FREE ROAM</span>
+<button id="btn-ow-race" style="background:#ffeaa7;color:#000;padding:5px 10px">🏁 STREET RACE</button>
+</div>
+</div>
 
-  // Shadow
-  ctx.fillStyle = "rgba(0,0,0,0.45)";
-  ctx.fillRect(-16, -8, 38, 22);
+<div id="controls">
+<button class="ctrl-btn" id="btn-left">◀ LEFT<small>[A]</small></button>
+<button class="ctrl-btn" id="btn-right">▶ RIGHT<small>[D]</small></button>
+<button class="ctrl-btn" id="btn-brake">🛑 BRAKE<small>[S]</small></button>
+<button class="ctrl-btn" id="btn-nitro">🔥 NITRO<small>[Shift]</small></button>
+<button class="ctrl-btn" id="btn-gas">⚡ GAS<small>[W]</small></button>
+</div>
 
-  // Rear bumper
-  ctx.fillStyle = "#20242d";
-  ctx.fillRect(-20, -9, 4, 18);
+<script type="module">
+const params=new URLSearchParams(location.search);
+let roomId=params.get("room")||"{{ room_id }}";
+const bet=parseInt(params.get("bet")||"{{ bet }}"||"0",10);
+let userId=params.get("uid")||"guest_"+Math.floor(Math.random()*999999);
+let username=params.get("name")||"Racer";
+let customBgUrl="{{ bg_url }}";
+let customBgImg=null;
 
-  // Rear spoiler
-  ctx.fillStyle = "#171a22";
-  ctx.fillRect(-17, -14, 5, 28);
-  ctx.fillRect(-21, -16, 11, 3);
-  ctx.fillRect(-21, 13, 11, 3);
+if(customBgUrl){customBgImg=new Image();customBgImg.src=customBgUrl;}
 
-  // Tyres
-  ctx.fillStyle = "#090b10";
-  ctx.fillRect(-12, -13, 10, 5);
-  ctx.fillRect(7, -13, 10, 5);
-  ctx.fillRect(-12, 8, 10, 5);
-  ctx.fillRect(7, 8, 10, 5);
+let ownedCars=[{
+name:"Starter Kart",rarity:"COMMON",color:"#95a5a6",
+top_speed:145,accel:8.9,handling:65,braking:60,
+hp:110,drivetrain:"RWD",weight:680,flag:"🇯🇵",emoji:"🛺"
+}];
+let selectedCar=ownedCars[0];
 
-  // Tyre highlights
-  ctx.fillStyle = "#69717c";
-  ctx.fillRect(-10, -12, 5, 2);
-  ctx.fillRect(9, -12, 5, 2);
-  ctx.fillRect(-10, 9, 5, 2);
-  ctx.fillRect(9, 9, 5, 2);
-
-  // Main car body
-  ctx.fillStyle = "#151922";
-  ctx.fillRect(-17, -10, 36, 20);
-
-  ctx.fillStyle = body;
-  ctx.fillRect(-15, -9, 32, 18);
-  ctx.fillRect(-12, -11, 25, 22);
-  ctx.fillRect(-17, -6, 35, 12);
-
-  // Front bumper
-  ctx.fillStyle = "#171a22";
-  ctx.fillRect(15, -9, 5, 18);
-
-  // Front hood
-  ctx.fillStyle = body;
-  ctx.fillRect(9, -7, 7, 14);
-
-  // Racing stripe
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.fillRect(-10, -2, 24, 2);
-  ctx.fillRect(-10, 2, 24, 2);
-
-  // Windshield
-  ctx.fillStyle = "#182c43";
-  ctx.fillRect(-3, -7, 10, 14);
-
-  // Window reflections
-  ctx.fillStyle = "#74b9ff";
-  ctx.fillRect(-1, -6, 3, 5);
-  ctx.fillRect(3, 2, 3, 4);
-
-  // Rear window
-  ctx.fillStyle = "#243b55";
-  ctx.fillRect(-12, -6, 5, 12);
-
-  // Front headlights
-  ctx.fillStyle = "#fff3a3";
-  ctx.fillRect(15, -7, 3, 4);
-  ctx.fillRect(15, 3, 3, 4);
-
-  // Headlight glow
-  ctx.fillStyle = "#ffeaa7";
-  ctx.fillRect(18, -6, 2, 2);
-  ctx.fillRect(18, 4, 2, 2);
-
-  // Rear lights
-  ctx.fillStyle = "#ff3838";
-  ctx.fillRect(-17, -7, 3, 4);
-  ctx.fillRect(-17, 3, 3, 4);
-
-  // Racing number
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 7px Courier New";
-  ctx.textAlign = "center";
-  ctx.fillText("GP", 3, 3);
-
-  // Pixel details
-  ctx.fillStyle = "rgba(0,0,0,0.25)";
-  ctx.fillRect(-7, -9, 2, 18);
-  ctx.fillRect(11, -8, 2, 16);
-
-  ctx.restore();
-
-  // Racer name
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 11px Courier New";
-  ctx.textAlign = "center";
-  ctx.shadowColor = "#000000";
-  ctx.shadowBlur = 4;
-  ctx.fillText(label || "RACER", x, y - 21);
-  ctx.shadowBlur = 0;
-  ctx.textAlign = "left";
+function renderCarSelect(){
+const sel=document.getElementById("car-select");
+sel.innerHTML="";
+ownedCars.forEach((c,idx)=>{
+const opt=document.createElement("option");
+opt.value=idx;
+opt.textContent=`${c.emoji||"🏎️"} ${c.name} (${c.top_speed} KM/H • ${c.hp} HP)`;
+if(c.name===selectedCar.name)opt.selected=true;
+sel.appendChild(opt);
+});
+updateCarCard();
 }
+
+function updateCarCard(){
+const c=selectedCar;
+document.getElementById("car-title").textContent=`${c.emoji||"🏎️"} ${c.name}`;
+document.getElementById("car-rarity").textContent=c.rarity||"COMMON";
+document.getElementById("car-rarity").style.background=c.color||"#6c5ce7";
+document.getElementById("st-speed").textContent=c.top_speed;
+document.getElementById("bar-speed").style.width=Math.min(100,c.top_speed/430*100)+"%";
+document.getElementById("st-accel").textContent=c.accel;
+document.getElementById("bar-accel").style.width=Math.min(100,Math.max(15,(10.5-c.accel)*12))+"%";
+document.getElementById("st-hand").textContent=c.handling;
+document.getElementById("bar-hand").style.width=c.handling+"%";
+document.getElementById("st-hp").textContent=c.hp;
+document.getElementById("st-drive").textContent=c.drivetrain;
+document.getElementById("st-weight").textContent=c.weight;
+document.getElementById("st-flag").textContent=c.flag;
+}
+
+document.getElementById("car-select").addEventListener("change",e=>{
+selectedCar=ownedCars[parseInt(e.target.value,10)]||ownedCars[0];
+updateCarCard();
+});
+renderCarSelect();
+
+async function initDiscordSDK(){
+const clientId="{{ client_id }}";
+if(!clientId||!location.search.includes("frame_id"))return;
+try{
+const {DiscordSDK}=await import("https://esm.sh/@discord/embedded-app-sdk");
+const sdk=new DiscordSDK(clientId);
+await sdk.ready();
+if(sdk.channelId)roomId=sdk.channelId;
+const {code}=await sdk.commands.authorize({
+client_id:clientId,response_type:"code",state:"",prompt:"none",scope:["identify"]
+});
+const tokRes=await fetch("/api/token",{
+method:"POST",headers:{"Content-Type":"application/json"},
+body:JSON.stringify({code})
+});
+const tokData=await tokRes.json();
+if(tokData.access_token){
+const auth=await sdk.commands.authenticate({access_token:tokData.access_token});
+if(auth&&auth.user){
+userId=auth.user.id;
+username=auth.user.global_name||auth.user.username;
+}
+}
+}catch(e){console.error("Discord SDK:",e);}
+}
+
+async function loadPlayerGarage(){
+try{
+const res=await fetch(`/api/player/${encodeURIComponent(userId)}`);
+const data=await res.json();
+if(data.cars&&data.cars.length){
+ownedCars=data.cars;
+selectedCar=ownedCars[ownedCars.length-1];
+}
+if(data.bg_url&&!customBgImg){
+customBgImg=new Image();
+customBgImg.src=data.bg_url;
+}
+}catch(e){console.warn("Garage could not load:",e);}
+renderCarSelect();
+}
+
+let gameMode="lobby";
+let myProgress=0,mySpeed=0,nitroTimer=0,aiProgress=0;
+let soloCountdown=0,soloWinner="";
+let owX=500,owY=500,owAngle=0,owPlayers=[];
+let owStreetRace={active:false,countdown:0,checkpoint_x:1650,checkpoint_y:350,winner:""};
+let mpState={status:"lobby",countdown:0,winner:null,players:[]};
+const flames=[];
+
+function spawnFlame(x,y,angle,isNitro){
+for(let i=0;i<(isNitro?4:2);i++){
+flames.push({
+x:x-Math.cos(angle)*20+(Math.random()-.5)*6,
+y:y-Math.sin(angle)*20+(Math.random()-.5)*6,
+vx:-Math.cos(angle)*(80+Math.random()*90)+(Math.random()-.5)*35,
+vy:-Math.sin(angle)*(80+Math.random()*90)+(Math.random()-.5)*35,
+life:.25+Math.random()*.15,nitro:isNitro
+});
+}
+}
+
+const keys={gas:false,brake:false,left:false,right:false};
+
+function bindHold(id,prop){
+const el=document.getElementById(id);
+const on=e=>{e.preventDefault();keys[prop]=true;el.classList.add("active");};
+const off=e=>{if(e)e.preventDefault();keys[prop]=false;el.classList.remove("active");};
+el.addEventListener("touchstart",on,{passive:false});
+el.addEventListener("touchend",off);
+el.addEventListener("touchcancel",off);
+el.addEventListener("mousedown",on);
+el.addEventListener("mouseup",off);
+el.addEventListener("mouseleave",off);
+}
+bindHold("btn-gas","gas");
+bindHold("btn-brake","brake");
+bindHold("btn-left","left");
+bindHold("btn-right","right");
+
+document.getElementById("btn-nitro").addEventListener("click",()=>{
+if(nitroTimer<=0)nitroTimer=2;
+});
+
+window.addEventListener("keydown",e=>{
+if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key))e.preventDefault();
+if(["w","W","ArrowUp"].includes(e.key))keys.gas=true;
+if(["s","S","ArrowDown"].includes(e.key))keys.brake=true;
+if(["a","A","ArrowLeft"].includes(e.key))keys.left=true;
+if(["d","D","ArrowRight"].includes(e.key))keys.right=true;
+if(e.key==="Shift"&&nitroTimer<=0)nitroTimer=2;
+});
+window.addEventListener("keyup",e=>{
+if(["w","W","ArrowUp"].includes(e.key))keys.gas=false;
+if(["s","S","ArrowDown"].includes(e.key))keys.brake=false;
+if(["a","A","ArrowLeft"].includes(e.key))keys.left=false;
+if(["d","D","ArrowRight"].includes(e.key))keys.right=false;
+});
+
+const canvas=document.getElementById("gameCanvas");
+const ctx=canvas.getContext("2d");
+
+function enterMode(mode){
+gameMode=mode;
+document.getElementById("lobby-overlay").style.display="none";
+document.getElementById("mp-wait-bar").style.display=mode==="multi"?"block":"none";
+document.getElementById("ow-bar").style.display=mode==="openworld"?"flex":"none";
+document.getElementById("hdr-mode").textContent=mode.toUpperCase();
+canvas.focus();
+myProgress=0;mySpeed=0;nitroTimer=0;
+if(mode==="solo"){aiProgress=0;soloCountdown=2;soloWinner="";}
+else if(mode==="multi")syncMultiplayer("update");
+else if(mode==="openworld")syncOpenWorld("move");
+}
+
+document.getElementById("pick-solo").addEventListener("click",()=>enterMode("solo"));
+document.getElementById("pick-multi").addEventListener("click",()=>enterMode("multi"));
+document.getElementById("pick-openworld").addEventListener("click",()=>enterMode("openworld"));
+
+document.getElementById("btn-back-lobby").addEventListener("click",()=>{
+gameMode="lobby";
+document.getElementById("lobby-overlay").style.display="flex";
+document.getElementById("mp-wait-bar").style.display="none";
+document.getElementById("ow-bar").style.display="none";
+document.getElementById("hdr-mode").textContent="LOBBY";
+});
+
+async function syncMultiplayer(action="update"){
+if(gameMode!=="multi")return;
+try{
+const res=await fetch(`/api/room/${encodeURIComponent(roomId)}/sync`,{
+method:"POST",headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+user_id:userId,username,car_name:selectedCar.name,
+progress:myProgress,speed:Math.round(mySpeed),
+firing:keys.gas||nitroTimer>0,bet,action
+})
+});
+const prev=mpState.status;
+mpState=await res.json();
+if(prev!=="racing"&&mpState.status==="racing"){myProgress=0;mySpeed=0;}
+document.getElementById("mp-wait-bar").style.display=mpState.status==="lobby"?"block":"none";
+document.getElementById("mp-players-text").textContent=
+"LOBBY: "+(mpState.players||[]).map(p=>`${p.ready?"✅":"⏳"} ${p.username} (${p.car.name})`).join(" | ");
+}catch(e){console.warn("Multiplayer sync:",e);}
+}
+
+document.getElementById("btn-mp-ready").addEventListener("click",()=>syncMultiplayer("ready"));
+document.getElementById("btn-mp-start").addEventListener("click",()=>syncMultiplayer("start"));
+
+async function syncOpenWorld(action="move"){
+if(gameMode!=="openworld")return;
+try{
+const res=await fetch(`/api/openworld/${encodeURIComponent(roomId)}/sync`,{
+method:"POST",headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+user_id:userId,username,car_name:selectedCar.name,
+x:owX,y:owY,angle:owAngle,speed:mySpeed,
+firing:keys.gas||nitroTimer>0,action
+})
+});
+const data=await res.json();
+owPlayers=data.players||[];
+owStreetRace=data.street_race||owStreetRace;
+document.getElementById("ow-status").textContent=owStreetRace.active
+?"🏁 RACE TO CHECKPOINT!":`PLAYERS ONLINE: ${owPlayers.length}`;
+}catch(e){console.warn("Open world sync:",e);}
+}
+document.getElementById("btn-ow-race").addEventListener("click",()=>syncOpenWorld("start_street_race"));
+
+setInterval(()=>{
+if(gameMode==="multi")syncMultiplayer("update");
+if(gameMode==="openworld")syncOpenWorld("move");
+},350);
+
+function resize(){
+const rect=canvas.getBoundingClientRect();
+canvas.width=Math.max(1,Math.floor(rect.width));
+canvas.height=Math.max(1,Math.floor(rect.height));
+}
+window.addEventListener("resize",resize);
+resize();
+
+/* PIXEL ART CAR SPRITE */
+function drawPixelCar(x,y,angle,color,label,firing,isNitro){
+ctx.save();
+ctx.translate(Math.round(x),Math.round(y));
+ctx.rotate(angle);
+
+// Exhaust flames
+if(firing){
+const len=isNitro?25+Math.random()*15:12+Math.random()*8;
+ctx.fillStyle=isNitro?"#00cec9":"#ff7675";
+ctx.fillRect(-19-len,-6,len,5);
+ctx.fillRect(-19-len,2,len,5);
+ctx.fillStyle="#ffeaa7";
+ctx.fillRect(-19-len*.65,-5,len*.65,3);
+ctx.fillRect(-19-len*.65,3,len*.65,3);
+}
+
+// Shadow
+ctx.fillStyle="rgba(0,0,0,.4)";
+ctx.fillRect(-16,-8,38,22);
+
+// Spoiler
+ctx.fillStyle="#11151d";
+ctx.fillRect(-18,-14,5,28);
+ctx.fillRect(-22,-16,12,3);
+ctx.fillRect(-22,13,12,3);
+
+// Tyres
+ctx.fillStyle="#080a0e";
+ctx.fillRect(-12,-13,10,6);
+ctx.fillRect(7,-13,10,6);
+ctx.fillRect(-12,7,10,6);
+ctx.fillRect(7,7,10,6);
+
+// Tyre shine
+ctx.fillStyle="#69717c";
+ctx.fillRect(-10,-12,5,2);
+ctx.fillRect(9,-12,5,2);
+ctx.fillRect(-10,8,5,2);
+ctx.fillRect(9,8,5,2);
+
+// Main chassis
+ctx.fillStyle="#10141d";
+ctx.fillRect(-17,-10,36,20);
+
+// Car body
+ctx.fillStyle=color||"#e74c3c";
+ctx.fillRect(-15,-9,32,18);
+ctx.fillRect(-12,-11,25,22);
+ctx.fillRect(-17,-6,35,12);
+
+// Front bumper
+ctx.fillStyle="#171a22";
+ctx.fillRect(15,-9,5,18);
+
+// Hood
+ctx.fillStyle=color||"#e74c3c";
+ctx.fillRect(9,-7,7,14);
+
+// Racing stripes
+ctx.fillStyle="#f5f6fa";
+ctx.fillRect(-10,-2,24,2);
+ctx.fillRect(-10,2,24,2);
+
+// Windows
+ctx.fillStyle="#172d45";
+ctx.fillRect(-3,-7,10,14);
+ctx.fillRect(-12,-6,5,12);
+
+// Window reflections
+ctx.fillStyle="#74b9ff";
+ctx.fillRect(-1,-6,3,5);
+ctx.fillRect(3,2,3,4);
+
+// Front windshield edge
+ctx.fillStyle="#0b1725";
+ctx.fillRect(6,-8,2,16);
+
+// Headlights
+ctx.fillStyle="#fff3a3";
+ctx.fillRect(15,-7,3,4);
+ctx.fillRect(15,3,3,4);
+
+// Headlight glow
+ctx.fillStyle="#ffeaa7";
+ctx.fillRect(18,-6,2,2);
+ctx.fillRect(18,4,2,2);
+
+// Rear lights
+ctx.fillStyle="#ff3838";
+ctx.fillRect(-17,-7,3,4);
+ctx.fillRect(-17,3,3,4);
+
+// Racing number
+ctx.fillStyle="#fff";
+ctx.font="bold 7px Courier New";
+ctx.textAlign="center";
+ctx.fillText("GP",3,3);
+
+// Body details
+ctx.fillStyle="rgba(0,0,0,.25)";
+ctx.fillRect(-7,-9,2,18);
+ctx.fillRect(11,-8,2,16);
+
+ctx.restore();
+
+// Name above car
+ctx.fillStyle="#fff";
+ctx.font="bold 11px Courier New";
+ctx.textAlign="center";
+ctx.shadowColor="#000";
+ctx.shadowBlur=4;
+ctx.fillText(label||"RACER",x,y-21);
+ctx.shadowBlur=0;
+ctx.textAlign="left";
+}
+
+let lastTime=performance.now();
+
+function loop(now){
+const dt=Math.min(.1,(now-lastTime)/1000);
+lastTime=now;
+
+if(nitroTimer>0)nitroTimer-=dt;
+const isFiring=keys.gas||nitroTimer>0;
+const accelPower=Math.max(40,(11.5-(selectedCar.accel||8.9))*24);
+const maxSpd=nitroTimer>0?selectedCar.top_speed*1.25:selectedCar.top_speed;
+
+if(gameMode==="solo"){
+if(soloCountdown>0)soloCountdown-=dt;
+else if(!soloWinner){
+if(isFiring)mySpeed=Math.min(maxSpd,mySpeed+accelPower*dt);
+else mySpeed=Math.max(0,mySpeed-45*dt);
+if(keys.brake)mySpeed=Math.max(0,mySpeed-140*dt);
+myProgress=Math.min(100,myProgress+(mySpeed/1800)*dt*100);
+aiProgress=Math.min(100,aiProgress+(165/1800)*dt*100);
+if(myProgress>=100)soloWinner=username;
+else if(aiProgress>=100)soloWinner="AI RIVAL BOT";
+}
+}
+else if(gameMode==="multi"){
+if(mpState.status==="racing"&&mpState.countdown<=0){
+if(isFiring)mySpeed=Math.min(maxSpd,mySpeed+accelPower*dt);
+else mySpeed=Math.max(0,mySpeed-45*dt);
+if(keys.brake)mySpeed=Math.max(0,mySpeed-140*dt);
+myProgress=Math.min(100,myProgress+(mySpeed/1800)*dt*100);
+}
+}
+else if(gameMode==="openworld"){
+if(isFiring)mySpeed=Math.min(maxSpd*1.4,mySpeed+accelPower*1.5*dt);
+else mySpeed=Math.max(0,mySpeed-90*dt);
+if(keys.brake)mySpeed=Math.max(0,mySpeed-220*dt);
+const turnRate=((selectedCar.handling||65)/100)*3.2;
+if(mySpeed>8){
+if(keys.left)owAngle-=turnRate*dt;
+if(keys.right)owAngle+=turnRate*dt;
+}
+owX=Math.max(40,Math.min(1960,owX+Math.cos(owAngle)*mySpeed*dt*1.4));
+owY=Math.max(40,Math.min(1960,owY+Math.sin(owAngle)*mySpeed*dt*1.4));
+if(isFiring)spawnFlame(owX,owY,owAngle,nitroTimer>0);
+if(owStreetRace.active&&owStreetRace.countdown<=0){
+const dist=Math.hypot(owX-owStreetRace.checkpoint_x,owY-owStreetRace.checkpoint_y);
+if(dist<55)syncOpenWorld("win_street_race");
+}
+}
+
+document.getElementById("hdr-hud").textContent=
+`${Math.round(mySpeed)} KM/H${nitroTimer>0?" 🔥":""}`;
+
+ctx.fillStyle="#161b29";
+ctx.fillRect(0,0,canvas.width,canvas.height);
+
+if(gameMode==="solo"||gameMode==="multi"){
+if(customBgImg&&customBgImg.complete&&customBgImg.naturalWidth>0)
+ctx.drawImage(customBgImg,0,0,canvas.width,canvas.height);
+else{
+// Pixel racing track
+ctx.fillStyle="#252b3b";
+ctx.fillRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle="#343b4d";
+for(let x=0;x<canvas.width;x+=32){
+ctx.fillRect(x,0,2,canvas.height);
+}
+}
+
+const racers=gameMode==="solo"?[
+{user_id:userId,username,car:selectedCar,progress:myProgress,firing:isFiring},
+{user_id:"ai",username:"AI Rival",car:{color:"#e84393"},progress:aiProgress,firing:soloCountdown<=0}
+]:(mpState.players.length?mpState.players:[
+{user_id:userId,username,car:selectedCar,progress:myProgress,firing:isFiring}
+]);
+
+const laneH=Math.min(85,(canvas.height-60)/Math.max(2,racers.length));
+const startX=45;
+const finishX=canvas.width-55;
+const trackW=Math.max(120,finishX-startX);
+
+racers.forEach((r,idx)=>{
+const y=35+idx*laneH;
+ctx.fillStyle="#30394b";
+ctx.fillRect(startX,y,trackW,laneH-8);
+ctx.fillStyle="#414b60";
+for(let sx=startX;sx<finishX;sx+=40){
+ctx.fillRect(sx,y+laneH/2,20,2);
+}
+const prog=r.user_id===userId?myProgress:r.progress;
+const cx=startX+20+(prog/100)*(trackW-45);
+drawPixelCar(cx,y+laneH/2-4,0,r.car.color,r.username,r.firing,nitroTimer>0);
+});
+
+// Finish line
+for(let y=35;y<35+laneH*racers.length;y+=10){
+ctx.fillStyle=(Math.floor(y/10)%2===0)?"#fff":"#000";
+ctx.fillRect(finishX,y,10,10);
+}
+
+if(gameMode==="solo"&&soloCountdown>0){
+ctx.fillStyle="rgba(0,0,0,.55)";
+ctx.fillRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle="#ff7675";
+ctx.font="bold 48px Courier New";
+ctx.textAlign="center";
+ctx.fillText(Math.ceil(soloCountdown),canvas.width/2,canvas.height/2);
+ctx.textAlign="left";
+}
+
+const winName=gameMode==="solo"?soloWinner:
+(mpState.status==="finished"?mpState.winner:"");
+
+if(winName){
+ctx.fillStyle="rgba(0,0,0,.72)";
+ctx.fillRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle="#ffeaa7";
+ctx.font="bold 24px Courier New";
+ctx.textAlign="center";
+ctx.fillText(`🏆 WINNER: ${winName}!`,canvas.width/2,canvas.height/2-10);
+ctx.font="14px Courier New";
+ctx.fillStyle="#fff";
+ctx.fillText("Click screen to race again",canvas.width/2,canvas.height/2+22);
+ctx.textAlign="left";
+}
+}
+else if(gameMode==="openworld"){
+const camX=owX-canvas.width/2;
+const camY=owY-canvas.height/2;
+
+ctx.save();
+ctx.translate(-camX,-camY);
+
+if(customBgImg&&customBgImg.complete&&customBgImg.naturalWidth>0){
+ctx.drawImage(customBgImg,0,0,2000,2000);
+}else{
+ctx.fillStyle="#1e272e";
+ctx.fillRect(0,0,2000,2000);
+ctx.fillStyle="#2f3640";
+for(let r=200;r<=1800;r+=400){
+ctx.fillRect(0,r-45,2000,90);
+ctx.fillRect(r-45,0,90,2000);
+}
+// Road markings
+ctx.fillStyle="#ffeaa7";
+for(let r=200;r<=1800;r+=400){
+for(let p=0;p<2000;p+=60){
+ctx.fillRect(p,r-2,30,4);
+ctx.fillRect(r-2,p,4,30);
+}
+}
+// City blocks
+ctx.fillStyle="#252c38";
+for(let bx=80;bx<1900;bx+=400){
+for(let by=80;by<1900;by+=400){
+ctx.fillRect(bx,by,180,180);
+ctx.fillStyle="#394456";
+ctx.fillRect(bx+15,by+15,150,150);
+ctx.fillStyle="#252c38";
+}
+}
+}
+
+if(owStreetRace.active){
+ctx.fillStyle="rgba(255,234,167,.35)";
+ctx.beginPath();
+ctx.arc(owStreetRace.checkpoint_x,owStreetRace.checkpoint_y,50,0,Math.PI*2);
+ctx.fill();
+ctx.fillStyle="#ffeaa7";
+ctx.font="bold 14px Courier New";
+ctx.fillText("🏁 FINISH",owStreetRace.checkpoint_x-32,owStreetRace.checkpoint_y);
+}
+
+// Exhaust particles
+for(let i=flames.length-1;i>=0;i--){
+const f=flames[i];
+f.x+=f.vx*dt;
+f.y+=f.vy*dt;
+f.life-=dt;
+if(f.life<=0){flames.splice(i,1);continue;}
+ctx.fillStyle=f.nitro?"#00cec9":(Math.random()>.5?"#ff7675":"#fdcb6e");
+ctx.fillRect(Math.round(f.x)-3,Math.round(f.y)-3,6,6);
+}
+
+// Other players
+owPlayers.forEach(p=>{
+if(p.user_id!==userId){
+drawPixelCar(p.x,p.y,p.angle,p.car?.color||"#e84393",p.username,p.firing,false);
+}
+});
+
+// Your car
+drawPixelCar(owX,owY,owAngle,selectedCar.color,username,isFiring,nitroTimer>0);
+
+ctx.restore();
+}
+
+requestAnimationFrame(loop);
+}
+
+canvas.addEventListener("click",()=>{
+canvas.focus();
+if(gameMode==="solo"&&soloWinner)enterMode("solo");
+if(gameMode==="multi"&&mpState.status==="finished")syncMultiplayer("reset");
+});
+
+(async()=>{
+await initDiscordSDK();
+await loadPlayerGarage();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
