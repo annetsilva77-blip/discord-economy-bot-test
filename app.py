@@ -593,9 +593,19 @@ class EconomyBot(commands.Bot):
         intents = discord.Intents.default()
         super().__init__(command_prefix="!", intents=intents)
 
-    async def setup_hook(self):
+   async def setup_hook(self):
+    existing_commands = await self.http.get_global_commands(self.application_id)
+    entry_points = [cmd for cmd in existing_commands if cmd.get("type") == 4]
+
+    if entry_points:
+        payload = [cmd.to_dict(self.tree) for cmd in self.tree.get_commands()]
+        payload.extend(entry_points)
+        await self.http.bulk_upsert_global_commands(self.application_id, payload=payload)
+    else:
         await self.tree.sync()
-        print("Slash commands synchronized.")
+
+    print("Slash commands synchronized.")
+
 
 
 bot = EconomyBot()
