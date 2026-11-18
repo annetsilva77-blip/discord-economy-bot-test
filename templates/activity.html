@@ -2,246 +2,203 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pixel riders — main menu</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>StreetWorld 3D</title>
 <style>
-:root{
-  --kimi-color-text-primary:#111;
-  --kimi-color-text-secondary:#444;
-  --kimi-color-text-tertiary:#777;
-  --kimi-color-text-quaternary:#aaa;
-  --kimi-color-surface:#fff;
-  --kimi-color-surface-muted:#f3f3f3;
-  --kimi-color-surface-raised:#e9e9e9;
-  --kimi-color-surface-strong:#dfe3e8;
-  --kimi-color-border:#ddd;
-  --kimi-color-danger:#e5484d;
-  --kimi-color-positive:#30a46c;
-  --kimi-color-warning:#f5a524;
-  --kimi-color-accent:#0090ff;
-  --kimi-chart-1:#0090ff;
-  --kimi-chart-2:#e5484d;
-  --kimi-chart-3:#30a46c;
-  --kimi-chart-4:#8e4ec6;
-  --kimi-chart-5:#8b8d98;
-  --kimi-font-sans:ui-sans-serif,system-ui,sans-serif;
-  --t-fast:120ms;
-  --ease-out:cubic-bezier(.2,0,0,1);
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --kimi-color-text-primary:#eee;
-    --kimi-color-text-secondary:#bbb;
-    --kimi-color-text-tertiary:#888;
-    --kimi-color-text-quaternary:#555;
-    --kimi-color-surface:#151517;
-    --kimi-color-surface-muted:#1f1f22;
-    --kimi-color-surface-raised:#2a2a2e;
-    --kimi-color-surface-strong:#3a3f46;
-    --kimi-color-border:#333;
-  }
-}
-*{box-sizing:border-box}
-body{margin:0;padding:24px;font-family:var(--kimi-font-sans);background:var(--kimi-color-surface);color:var(--kimi-color-text-primary)}
-.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#08111b;color:#fff;font-family:Arial,Helvetica,sans-serif}
+#game{position:fixed;inset:0}canvas{display:block;width:100%;height:100%}
+#hud{position:fixed;inset:0;pointer-events:none}
+.panel{background:#07111dcc;border:1px solid #ffffff22;border-radius:12px;padding:10px 13px;backdrop-filter:blur(8px)}
+#stats{position:absolute;top:12px;left:12px;display:flex;gap:8px;align-items:flex-start}
+.small{font-size:10px;letter-spacing:1.5px;color:#a9c1d4}.big{font-size:22px;font-weight:900;margin-top:2px}
+#righttop{position:absolute;top:12px;right:12px;display:flex;gap:8px;pointer-events:auto}
+button,input{font:inherit}button{border:0;border-radius:10px;padding:10px 13px;background:#13c4d8;color:#04141b;font-weight:800;cursor:pointer}
+button.secondary{background:#1b2c3c;color:#e8f7ff;border:1px solid #ffffff22}
+#status{position:absolute;top:65px;right:12px;font-size:11px;color:#a8c5d7}
+#hint{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;color:#d8e7ef;background:#07111dcc;padding:8px 12px;border-radius:20px}
+#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(120deg,#06101deF,#0b2336d9);z-index:5;padding:18px}
+#menuCard{width:min(440px,100%);border:1px solid #ffffff26;background:#0b1b2bee;border-radius:20px;padding:24px;box-shadow:0 25px 90px #0009}
+.brand{font-size:12px;letter-spacing:4px;color:#5eeaf4;font-weight:900}
+h1{font-size:36px;line-height:1;margin:10px 0}
+.desc{color:#b4c8d7;line-height:1.5;font-size:13px}
+.field{width:100%;padding:12px;border-radius:10px;border:1px solid #ffffff2a;background:#06121e;color:white;margin:7px 0 12px}
+#controls{position:fixed;left:0;right:0;bottom:25px;display:flex;justify-content:space-between;padding:0 18px;pointer-events:none}
+.pad{display:flex;gap:10px;pointer-events:auto}
+.ctrl{width:62px;height:62px;border-radius:18px;background:#07111dcc;color:white;border:1px solid #ffffff55;font-size:24px;touch-action:none;user-select:none}
+.ctrl.go{background:#00b9ce;color:#03151c;font-size:12px}
+#players{position:absolute;left:12px;top:95px;font-size:11px;color:#c6d8e5}
+@media(min-width:800px){#controls{opacity:.72}.ctrl{width:54px;height:54px}}
+@media(max-width:520px){#stats{gap:5px}.panel{padding:8px 10px}.big{font-size:18px}#status{top:58px}#hint{bottom:105px;font-size:10px}}
 </style>
-<base target="_blank">
 </head>
 <body>
-<div class="wrap">
-<div class="root" style="font-family:var(--kimi-font-sans)">
-<style>
-.root button{font:inherit}
-.root .tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
-.screen{display:flex;flex-direction:column;gap:16px}
-.titleRow{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
-.gameTitle{font-size:20px;font-weight:500;letter-spacing:0}
-.coins{font-size:14px;color:var(--kimi-color-text-secondary)}
-.coins b{color:var(--kimi-color-text-primary);font-weight:500}
-.modeGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-@media(max-width:560px){.modeGrid{grid-template-columns:1fr}}
-.modeCard{border:1px solid var(--kimi-color-border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:background var(--t-fast) var(--ease-out)}
-.modeCard:hover{background:var(--kimi-color-surface-muted)}
-.modeCard.sel{border-color:var(--kimi-color-text-primary);background:var(--kimi-color-surface-muted)}
-.modeName{font-size:17px;font-weight:500}
-.modeDesc{font-size:14px;color:var(--kimi-color-text-secondary);line-height:20px}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{font-size:12px;padding:2px 8px;border-radius:6px;border:1px solid var(--kimi-color-border);color:var(--kimi-color-text-secondary)}
-.chip.on{color:var(--kimi-color-text-primary);border-color:var(--kimi-color-text-primary)}
-.btn{border:none;border-radius:10px;padding:8px 16px;font-size:14px;font-weight:500;cursor:pointer;transition:opacity var(--t-fast) var(--ease-out)}
-.btn.primary{background:var(--kimi-color-text-primary);color:var(--kimi-color-surface)}
-.btn.ghost{background:transparent;border:1px solid var(--kimi-color-border);color:var(--kimi-color-text-primary)}
-.btn:disabled{opacity:.4;cursor:default}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.panel{border:1px solid var(--kimi-color-border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
-.panelTitle{font-size:15px;font-weight:500}
-.friend{display:flex;align-items:center;gap:8px;font-size:14px}
-.avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--kimi-color-surface)}
-.switch{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
-.switch input{accent-color:var(--kimi-color-text-primary);width:16px;height:16px}
-.tabs{display:flex;gap:4px;border-bottom:1px solid var(--kimi-color-border)}
-.tab{background:none;border:none;border-bottom:2px solid transparent;padding:8px 12px;font-size:14px;color:var(--kimi-color-text-secondary);cursor:pointer}
-.tab.on{color:var(--kimi-color-text-primary);border-bottom-color:var(--kimi-color-text-primary);font-weight:500}
-.carGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
-.carCard{border:1px solid var(--kimi-color-border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
-.carCard.owned{border-color:var(--kimi-color-text-primary)}
-.carName{font-size:15px;font-weight:500}
-.carArt{align-self:center}
-.stat{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--kimi-color-text-secondary)}
-.bar{flex:1;height:6px;border-radius:3px;background:var(--kimi-color-surface-muted);overflow:hidden}
-.bar i{display:block;height:100%;border-radius:3px;background:var(--kimi-color-text-primary)}
-.partRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--kimi-color-border);border-radius:10px;flex-wrap:wrap}
-.partName{font-size:14px;font-weight:500}
-.partDesc{font-size:12px;color:var(--kimi-color-text-secondary)}
-.meta{font-size:12px;color:var(--kimi-color-text-tertiary)}
-.tag{font-size:11px;padding:1px 6px;border-radius:6px}
-.speedTag{background:color-mix(in srgb,var(--kimi-chart-1) 15%,transparent);color:var(--kimi-chart-1)}
-.driftTag{background:color-mix(in srgb,var(--kimi-chart-4) 15%,transparent);color:var(--kimi-chart-4)}
-.muscleTag{background:color-mix(in srgb,var(--kimi-chart-2) 15%,transparent);color:var(--kimi-chart-2)}
-.offTag{background:color-mix(in srgb,var(--kimi-chart-3) 15%,transparent);color:var(--kimi-chart-3)}
-</style>
-
-<div class="screen" id="menuScreen">
-  <div class="titleRow">
-    <div class="gameTitle">Pixel riders</div>
-    <div class="coins tnum">Coins: <b id="coinCount">4,500</b></div>
+<div id="game"></div>
+<div id="hud">
+  <div id="stats">
+    <div class="panel"><div class="small">SPEED</div><div class="big"><span id="speed">0</span> <span style="font-size:10px">KM/H</span></div></div>
+    <div class="panel"><div class="small">WORLD</div><div class="big" id="zone">GREENLAND</div></div>
   </div>
-
-  <div class="modeGrid">
-    <div class="modeCard sel" id="mpCard">
-      <div class="modeName">Multiplayer</div>
-      <div class="modeDesc">Race your friends in real time. Invite the lobby or challenge a rival directly.</div>
-      <div class="chips" id="mpChips"></div>
-      <button class="btn primary" id="mpPlay" style="align-self:flex-start">Play multiplayer</button>
-    </div>
-    <div class="modeCard" id="owCard">
-      <div class="modeName">Open world</div>
-      <div class="modeDesc">One big shared city. Anyone can join your world — cruise, race at lights, or just show off your garage.</div>
-      <div class="chips" id="owChips"></div>
-      <button class="btn ghost" id="owPlay" style="align-self:flex-start">Drive open world</button>
-    </div>
-  </div>
-
-  <div class="row">
-    <button class="btn ghost" id="toGarage">Garage &amp; dealership</button>
-  </div>
-
-  <div class="panel">
-    <div class="titleRow">
-      <div class="panelTitle">In the lobby</div>
-      <label class="switch"><input type="checkbox" id="openWorld" checked> Anyone can join this world</label>
-    </div>
-    <div class="row" id="lobby"></div>
-    <div class="meta" id="lobbyMeta">4 friends online</div>
-  </div>
+  <div id="righttop"><button class="secondary" id="dayBtn">DAY / NIGHT</button><button class="secondary" id="menuBtn">MENU</button></div>
+  <div id="status">Multiplayer: offline</div>
+  <div id="players">Players nearby: 1</div>
+  <div id="hint">WASD / ARROWS to drive · Mobile: use the buttons</div>
 </div>
-
-<div class="screen" id="garageScreen" style="display:none">
-  <div class="titleRow">
-    <div class="gameTitle">Garage</div>
-    <div class="coins tnum">Coins: <b id="coinCount2">4,500</b></div>
-  </div>
-  <div class="tabs">
-    <button class="tab on" data-tab="garage">My cars</button>
-    <button class="tab" data-tab="dealer">Dealership</button>
-    <button class="tab" data-tab="parts">Parts shop</button>
-  </div>
-  <div id="tabBody" style="display:flex;flex-direction:column;gap:12px"></div>
-  <button class="btn ghost" id="backBtn" style="align-self:flex-start">Back to menu</button>
+<div id="controls">
+  <div class="pad"><button class="ctrl" id="left">◀</button><button class="ctrl" id="right">▶</button></div>
+  <div class="pad"><button class="ctrl" id="brake">BRAKE</button><button class="ctrl go" id="gas">ACCELERATE</button></div>
 </div>
-
+<div id="menu">
+ <div id="menuCard">
+  <div class="brand">OPEN WORLD DRIVING</div>
+  <h1>STREETWORLD<br> <span style="color:#38d9e8">3D</span></h1>
+  <p class="desc">Explore a living 3D world, cruise through town, discover roads and drive with friends.</p>
+  <label class="small" for="playerName">DRIVER NAME</label>
+  <input class="field" id="playerName" maxlength="16" value="Driver" placeholder="Your driver name">
+  <label class="small" for="serverUrl">MULTIPLAYER SERVER URL</label>
+  <input class="field" id="serverUrl" placeholder="https://your-game-server.example">
+  <button id="play" style="width:100%;padding:14px">ENTER WORLD</button>
+  <p class="desc" style="font-size:11px;margin-top:13px">Single-player works immediately. Online multiplayer requires your own hosted Socket.IO server URL.</p>
+ </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script>
-const CARS=[
- {id:'pocket',name:'Pocket rocket',cls:'starter',body:'var(--kimi-chart-5)',price:0,spd:34,acc:52,hnd:60,owned:true},
- {id:'fox',name:'Street fox',cls:'speed',body:'var(--kimi-chart-1)',price:1200,spd:52,acc:48,hnd:55},
- {id:'drift',name:'Drift king',cls:'drift',body:'var(--kimi-chart-4)',price:1800,spd:46,acc:44,hnd:82},
- {id:'muscle',name:'Muscle v8',cls:'muscle',body:'var(--kimi-chart-2)',price:2600,spd:62,acc:38,hnd:40},
- {id:'rally',name:'Rally beast',cls:'offroad',body:'var(--kimi-chart-3)',price:3400,spd:55,acc:58,hnd:70},
- {id:'hyper',name:'Hyper one',cls:'speed',body:'var(--kimi-chart-1)',price:5200,spd:88,acc:74,hnd:62},
-];
-const PARTS=[
- {id:'turbo',name:'Turbo kit',desc:'+12 speed',price:900},
- {id:'nitro',name:'Nitro tank',desc:'+15 acceleration',price:750},
- {id:'tires',name:'Racing tires',desc:'+10 handling',price:600},
- {id:'wing',name:'GT wing',desc:'+6 handling, looks fast',price:450},
- {id:'tune',name:'Engine tune',desc:'+8 speed, +5 acceleration',price:1100},
-];
-let coins=4500, partsOwned=[];
-const FRIENDS=[['M','var(--kimi-chart-1)'],['Z','var(--kimi-chart-2)'],['K','var(--kimi-chart-4)'],['A','var(--kimi-chart-3)']];
-const CLSTAG={starter:'',speed:['speedTag','speed'],drift:['driftTag','drift'],muscle:['muscleTag','muscle'],offroad:['offTag','offroad']};
-
-const PIX=[
-"......cc........",
-"....cccccc......",
-"...ccccccccc....",
-"..gggggggggg....",
-".ggggggggggggg..",
-".hggggggggggggt.",
-".gggggggggggggg.",
-"..kk........kk..",
-"..kk........kk.."];
-
-function carSVG(body,scale){
- scale=scale||6; const cols=16, rows=PIX.length;
- let r=''; const m={c:body,g:'var(--kimi-color-surface-strong)',h:'var(--kimi-color-warning)',t:'var(--kimi-color-danger)',k:'var(--kimi-color-text-primary)'};
- for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){const ch=PIX[y][x]; if(m[ch]) r+='<rect x="'+(x*scale)+'" y="'+(y*scale)+'" width="'+scale+'" height="'+scale+'" fill="'+m[ch]+'"/>';}
- return '<svg class="carArt" width="'+(cols*scale)+'" height="'+(rows*scale)+'" viewBox="0 0 '+(cols*scale)+' '+(rows*scale)+'" shape-rendering="crispEdges">'+r+'</svg>';
-}
-function fmt(n){return n.toLocaleString('en-US');}
-function refreshCoins(){['coinCount','coinCount2'].forEach(id=>{const e=document.getElementById(id); if(e)e.textContent=fmt(coins);});}
-
-document.getElementById('mpChips').innerHTML=['Race','Drift battle','Tag','Time attack'].map((m,i)=>'<span class="chip'+(i===0?' on':'')+'">'+m+'</span>').join('');
-document.getElementById('owChips').innerHTML=['City cruise','Meetup spot','Highway loop','Stunt park'].map((m,i)=>'<span class="chip'+(i===0?' on':'')+'">'+m+'</span>').join('');
-document.getElementById('lobby').innerHTML=FRIENDS.map(f=>'<div class="friend"><div class="avatar" style="background:'+f[1]+'">'+f[0]+'</div></div>').join('');
-
-document.getElementById('mpCard').onclick=()=>select('mpCard','owCard');
-document.getElementById('owCard').onclick=()=>select('owCard','mpCard');
-function select(a,b){document.getElementById(a).classList.add('sel');document.getElementById(b).classList.remove('sel');}
-
-document.getElementById('mpPlay').onclick=()=>{ if(window.sendPrompt) window.sendPrompt('Start a multiplayer race with my friends in Pixel riders'); };
-document.getElementById('owPlay').onclick=()=>{ if(window.sendPrompt) window.sendPrompt('Drive into the open world city, anyone can join'); };
-document.getElementById('openWorld').onchange=e=>{document.getElementById('lobbyMeta').textContent=e.target.checked?'4 friends online · world is open to everyone':'4 friends online · invite only';};
-
-function statRow(label,val){return '<div class="stat"><span style="width:34px">'+label+'</span><div class="bar"><i style="width:'+val+'%"></i></div></div>';}
-
-function carCard(c,dealer){
- const owned=c.owned, afford=coins>=c.price, tag=CLSTAG[c.cls]&&CLSTAG[c.cls][0]?'<span class="tag '+CLSTAG[c.cls][0]+'">'+CLSTAG[c.cls][1]+'</span>':'<span class="tag">starter</span>';
- let btn;
- if(owned) btn='<button class="btn ghost" disabled style="align-self:flex-start">In your garage</button>';
- else btn='<button class="btn primary" data-buy="'+c.id+'" '+(afford?'':'disabled')+' style="align-self:flex-start">Buy &middot; '+fmt(c.price)+'</button>';
- return '<div class="carCard'+(owned?' owned':'')+'"><div class="row" style="justify-content:space-between"><div class="carName">'+c.name+'</div>'+tag+'</div>'+carSVG(c.body)+statRow('spd',c.spd)+statRow('acc',c.acc)+statRow('hnd',c.hnd)+btn+'</div>';
-}
-
-function renderTab(tab){
- const body=document.getElementById('tabBody');
- document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
- if(tab==='garage'){
-  const mine=CARS.filter(c=>c.owned);
-  body.innerHTML='<div class="meta">'+mine.length+' car'+(mine.length>1?'s':'')+' owned · buy more at the dealership</div><div class="carGrid">'+mine.map(c=>carCard(c)).join('')+'</div>';
- }else if(tab==='dealer'){
-  const notMine=CARS.filter(c=>!c.owned);
-  body.innerHTML='<div class="meta">Fresh stock — earn coins by winning races</div><div class="carGrid">'+notMine.map(c=>carCard(c,true)).join('')+'</div>';
- }else{
-  body.innerHTML=PARTS.map(p=>{
-   const owned=partsOwned.includes(p.id);
-   return '<div class="partRow"><div><div class="partName">'+p.name+'</div><div class="partDesc">'+p.desc+'</div></div>'+(owned?'<button class="btn ghost" disabled>Installed</button>':'<button class="btn primary" data-part="'+p.id+'" '+(coins>=p.price?'':'disabled')+'>Buy &middot; '+fmt(p.price)+'</button>')+'</div>';
-  }).join('');
+(() => {
+'use strict';
+const $=id=>document.getElementById(id);
+if(!window.THREE){$('menuCard').insertAdjacentHTML('beforeend','<p style="color:#ff9b9b">3D engine failed to load. Check your internet connection.</p>');return;}
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x91c9e8);
+scene.fog=new THREE.Fog(0x91c9e8,90,330);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,900);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;
+$('game').appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xd9f2ff,0x506044,1.8));
+const sun=new THREE.DirectionalLight(0xffefce,2.7);sun.position.set(-45,75,-35);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-90;sun.shadow.camera.right=90;sun.shadow.camera.top=90;sun.shadow.camera.bottom=-90;scene.add(sun);
+const mat=(c,r=.8,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const grass=mat(0x527345),asphalt=mat(0x252a30),line=mat(0xf1e9d2),dark=mat(0x111820,.45),trunk=mat(0x62452e);
+const world=new THREE.Group();scene.add(world);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(2000,2000),grass);ground.rotation.x=-Math.PI/2;ground.position.y=-.18;ground.receiveShadow=true;world.add(ground);
+// A road grid makes the world feel like a connected town.
+const roads=[];
+function road(x,z,w,d){
+ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),asphalt);m.rotation.x=-Math.PI/2;m.position.set(x,-.09,z);m.receiveShadow=true;world.add(m);
+ const horizontal=d<w;
+ const length=horizontal?w:d;
+ for(let p=-length/2+4;p<length/2;p+=12){
+  const dash=new THREE.Mesh(new THREE.PlaneGeometry(horizontal?4:.13,horizontal?.13:4),line);
+  dash.rotation.x=-Math.PI/2;dash.position.set(x+(horizontal?p:0),-.075,z+(horizontal?0:p));world.add(dash);
  }
- body.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
-  const c=CARS.find(x=>x.id===b.dataset.buy);
-  if(coins>=c.price){coins-=c.price;c.owned=true;refreshCoins();renderTab('dealer');}
- });
- body.querySelectorAll('[data-part]').forEach(b=>b.onclick=()=>{
-  const p=PARTS.find(x=>x.id===b.dataset.part);
-  if(coins>=p.price){coins-=p.price;partsOwned.push(p.id);refreshCoins();renderTab('parts');}
- });
+ roads.push({x,z,w,d});
 }
-
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>renderTab(t.dataset.tab));
-document.getElementById('toGarage').onclick=()=>{document.getElementById('menuScreen').style.display='none';document.getElementById('garageScreen').style.display='flex';renderTab('garage');};
-document.getElementById('backBtn').onclick=()=>{document.getElementById('garageScreen').style.display='none';document.getElementById('menuScreen').style.display='flex';};
+for(let n=-5;n<=5;n++){road(n*75,0,15,1800);road(0,n*75,1800,15);}
+const treeM=[mat(0x254d32),mat(0x35643d),mat(0x487344)];
+function tree(x,z,s=1){
+ const g=new THREE.Group();g.position.set(x,0,z);world.add(g);
+ const t=new THREE.Mesh(new THREE.CylinderGeometry(.16*s,.25*s,2*s,7),trunk);t.position.y=s;t.castShadow=true;g.add(t);
+ for(let i=0;i<3;i++){const c=new THREE.Mesh(new THREE.ConeGeometry((1.35-i*.2)*s,2.3*s,7),treeM[i]);c.position.y=(2+i*1.05)*s;c.castShadow=true;g.add(c);}
+}
+const buildings=[];
+function building(x,z){
+ const w=8+Math.random()*12,d=8+Math.random()*12,h=8+Math.random()*34;
+ const colors=[0x8d999d,0xc0b7a5,0x64747d,0x9b9a8d,0x596a73];
+ const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(colors[Math.floor(Math.random()*colors.length)],.8));
+ b.position.set(x,h/2-.15,z);b.castShadow=true;b.receiveShadow=true;world.add(b);
+ const win=mat(0x9ccbd9,.3,.2);
+ for(let y=2;y<h-1;y+=3)for(let xx=-w/2+1.5;xx<w/2-1;xx+=2.8){
+  const q=new THREE.Mesh(new THREE.BoxGeometry(1.1,1.35,.06),win);q.position.set(x+xx,y,z-d/2-.04);world.add(q);
+ }
+ buildings.push(b);
+}
+// Scatter buildings and trees in blocks between roads.
+for(let gx=-5;gx<5;gx++)for(let gz=-5;gz<5;gz++){
+ const cx=gx*150+75,cz=gz*150+75;
+ for(let i=0;i<8;i++){
+  const x=cx+(Math.random()-.5)*105,z=cz+(Math.random()-.5)*105;
+  if(Math.random()<.56)building(x,z);else tree(x,z,.8+Math.random()*.8);
+ }
+}
+// distant hills
+for(let i=0;i<70;i++){
+ const h=18+Math.random()*55;
+ const m=new THREE.Mesh(new THREE.ConeGeometry(18+Math.random()*25,h,6),mat(i%2?0x657c70:0x7b8979));
+ const a=Math.random()*Math.PI*2,r=500+Math.random()*240;
+ m.position.set(Math.cos(a)*r,h/2-3,Math.sin(a)*r);world.add(m);
+}
+function makeCar(color=0x09a9d2){
+ const g=new THREE.Group(),body=mat(color,.27,.55),glass=new THREE.MeshPhysicalMaterial({color:0x172e3c,roughness:.18,metalness:.25,transparent:true,opacity:.92});
+ function box(w,h,d,m,x,y,z){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;g.add(o);return o;}
+ box(2,.62,4,body,0,.72,0);box(1.88,.22,1.1,body,0,1.02,-1.35);box(1.52,.72,1.8,glass,0,1.35,.2);box(1.5,.1,1.35,body,0,1.75,.2);
+ const wheels=[];
+ for(const x of [-1,1])for(const z of [-1.32,1.32]){
+  const w=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.27,18),dark);w.rotation.z=Math.PI/2;w.position.set(x*1.02,.43,z);w.castShadow=true;g.add(w);wheels.push(w);
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(.19,.19,.29,12),mat(0xaab4ba,.25,.8));hub.rotation.z=Math.PI/2;hub.position.copy(w.position);g.add(hub);
+ }
+ const head=mat(0xfff1c7,.25,.1);head.emissive.setHex(0xffdc8b);head.emissiveIntensity=1.5;
+ for(const x of [-.68,.68]){box(.42,.16,.07,head,x,.86,-2.02);box(.42,.17,.07,mat(0xa01818),x,.86,2.02);}
+ g.userData.wheels=wheels;return g;
+}
+const car=makeCar(0x0c9fc8);scene.add(car);car.position.set(0,0,4);
+const traffic=[];
+for(let i=0;i<22;i++){const t=makeCar([0xd74337,0xe4e6e8,0x252d37,0xd4a52c,0x39895a][i%5]);t.scale.setScalar(.9);t.position.set((i%2?4.2:-4.2),0,-45-i*34);scene.add(t);traffic.push(t);}
+const remoteCars=new Map();
+let socket=null,playerId=null,online=false,night=false,started=false,speed=0,steer=0;
+const keys={left:false,right:false,gas:false,brake:false};
+function bindHold(id,key){const el=$(id);el.addEventListener('pointerdown',e=>{e.preventDefault();el.setPointerCapture(e.pointerId);keys[key]=true;});['pointerup','pointercancel','lostpointercapture'].forEach(ev=>el.addEventListener(ev,()=>keys[key]=false));}
+bindHold('left','left');bindHold('right','right');bindHold('gas','gas');bindHold('brake','brake');
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k==='a'||k==='arrowleft')keys.left=true;if(k==='d'||k==='arrowright')keys.right=true;if(k==='w'||k==='arrowup')keys.gas=true;if(k==='s'||k==='arrowdown'||k===' ')keys.brake=true;});
+addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k==='a'||k==='arrowleft')keys.left=false;if(k==='d'||k==='arrowright')keys.right=false;if(k==='w'||k==='arrowup')keys.gas=false;if(k==='s'||k==='arrowdown'||k===' ')keys.brake=false;});
+function connectMultiplayer(){
+ const url=$('serverUrl').value.trim();
+ if(!url||!window.io){$('status').textContent='Multiplayer: single-player';return;}
+ try{
+  socket=io(url,{transports:['websocket','polling'],timeout:5000});
+  socket.on('connect',()=>{online=true;playerId=socket.id;$('status').textContent='Multiplayer: connected';socket.emit('joinWorld',{name:$('playerName').value.slice(0,16)||'Driver'});});
+  socket.on('disconnect',()=>{$('status').textContent='Multiplayer: disconnected';online=false;});
+  socket.on('players',list=>syncPlayers(list));
+  socket.on('playerJoined',p=>addRemote(p));
+  socket.on('playerMoved',p=>moveRemote(p));
+  socket.on('playerLeft',id=>removeRemote(id));
+  socket.on('connect_error',()=>{$('status').textContent='Multiplayer: server unavailable';});
+ }catch(e){$('status').textContent='Multiplayer: connection error';}
+}
+function addRemote(p){if(!p||p.id===playerId||remoteCars.has(p.id))return;const c=makeCar(p.color||0xe6a32d);scene.add(c);remoteCars.set(p.id,c);moveRemote(p);}
+function moveRemote(p){if(!p||p.id===playerId)return;let c=remoteCars.get(p.id);if(!c){addRemote(p);return;}c.position.set(Number(p.x)||0,0,Number(p.z)||0);c.rotation.y=Number(p.rotation)||0;}
+function removeRemote(id){const c=remoteCars.get(id);if(c){scene.remove(c);remoteCars.delete(id);}}
+function syncPlayers(list){if(!Array.isArray(list))return;const ids=new Set(list.map(p=>p.id));list.forEach(addRemote);for(const id of remoteCars.keys())if(!ids.has(id))removeRemote(id);$('players').textContent='Players nearby: '+(remoteCars.size+1);}
+$('play').addEventListener('click',()=>{$('menu').style.display='none';started=true;connectMultiplayer();});
+$('menuBtn').addEventListener('click',()=>{$('menu').style.display='flex';started=false;});
+$('dayBtn').addEventListener('click',()=>{night=!night;const sky=night?0x071321:0x91c9e8;scene.background.setHex(sky);scene.fog.color.setHex(sky);sun.intensity=night?.18:2.7;});
+let last=performance.now(),sendTimer=0;
+function animate(now){
+ requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.04);last=now;
+ if(started){
+  if(keys.gas)speed=Math.min(48,speed+19*dt);else speed=Math.max(0,speed-3.5*dt);
+  if(keys.brake)speed=Math.max(0,speed-34*dt);
+  const input=(keys.right?1:0)-(keys.left?1:0);steer=THREE.MathUtils.damp(steer,input,5,dt);
+  car.position.x+=steer*(1.8+speed*.075)*dt;car.position.z-=Math.cos(car.rotation.y)*speed*dt*.42;
+  car.rotation.y=THREE.MathUtils.damp(car.rotation.y,-steer*.23,4,dt);
+  car.position.x=THREE.MathUtils.clamp(car.position.x,-850,850);car.position.z=THREE.MathUtils.clamp(car.position.z,-850,850);
+  for(const t of traffic){t.position.z+=speed*dt*.52;if(t.position.z>car.position.z+20){t.position.z=car.position.z-250-Math.random()*260;t.position.x=Math.random()<.5?-4.2:4.2;}
+   if(Math.abs(t.position.z-car.position.z)<3.1&&Math.abs(t.position.x-car.position.x)<1.8)speed*=.96;
+  }
+  car.userData.wheels.forEach(w=>w.rotation.x-=speed*dt*.2);
+  sendTimer+=dt;if(socket&&socket.connected&&sendTimer>.06){sendTimer=0;socket.emit('move',{x:car.position.x,z:car.position.z,rotation:car.rotation.y});}
+ }
+ $('speed').textContent=Math.round(speed*3.6);
+ camera.position.lerp(new THREE.Vector3(car.position.x,5.2,car.position.z+10),.08);
+ camera.lookAt(car.position.x,1.1,car.position.z-12);
+ renderer.render(scene,camera);
+}
+requestAnimationFrame(animate);
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+})();
 </script>
-</div>
-</div>
 </body>
 </html>
