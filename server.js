@@ -1,67 +1,484 @@
 
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>StreetWorld 3D</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111;font-family:Arial}
+#game{position:fixed;inset:0}
+canvas{display:block}
+#hud{position:fixed;top:12px;left:12px;z-index:5;background:#111c;color:white;padding:12px;border-radius:12px;font-size:13px}
+#hud strong{font-size:17px}
+#speed{color:#65efa7;font-size:18px}
+#menu{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:#0009}
+.panel{width:min(340px,90%);padding:24px;background:#171c25;color:white;border:1px solid #ffffff30;border-radius:18px;text-align:center}
+.panel h1{margin:0 0 8px}
+.panel p{color:#b9c1ce;font-size:13px}
+input{width:100%;padding:13px;border:0;border-radius:9px;margin:12px 0;background:#303947;color:white;font-size:16px}
+button{border:0;border-radius:9px;padding:12px 18px;background:#16a56a;color:white;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.5}
+#err{color:#ff7777;font-size:12px;min-height:18px;margin-top:10px}
+#controls{position:fixed;bottom:22px;left:0;right:0;display:none;justify-content:space-between;padding:0 18px;z-index:6;pointer-events:none}
+.control-group{display:flex;gap:10px;pointer-events:auto}
+.drive-btn{width:62px;height:62px;border-radius:50%;background:#17202ddd;border:2px solid #ffffff70;color:white;font-size:23px;touch-action:none}
+#gas{background:#0b9c5dcc}
+#brake{background:#bd3535cc}
+#leave{position:fixed;top:12px;right:12px;z-index:7;display:none;background:#a83232}
+#help{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);color:white;background:#111a;padding:7px 12px;border-radius:8px;font-size:11px;z-index:4;white-space:nowrap}
+</style>
+</head>
+<body>
 
-const app = express();
-const server = http.createServer(app);
+<div id="game"></div>
 
-const io = new Server(server, {
-  cors: { origin: "*" }
+<div id="hud">
+<strong>🌍 StreetWorld 3D</strong><br>
+<span id="status">Loading world...</span><br>
+<span id="speed">0 km/h</span><br>
+<span id="players">Players: 1</span>
+</div>
+
+<button id="leave">Leave world</button>
+
+<div id="menu">
+<div class="panel">
+<h1>🏎️ StreetWorld</h1>
+<p>Explore the open world and drive with other players.</p>
+<input id="playerName" maxlength="16" placeholder="Driver name" value="Driver">
+<button id="join" style="width:100%">JOIN WORLD</button>
+<div id="err"></div>
+</div>
+</div>
+
+<div id="controls">
+<div class="control-group">
+<button class="drive-btn" id="left">◀</button>
+<button class="drive-btn" id="right">▶</button>
+</div>
+<div class="control-group">
+<button class="drive-btn" id="brake">▼</button>
+<button class="drive-btn" id="gas">▲</button>
+</div>
+</div>
+
+<div id="help">WASD / Arrow keys · Mobile touch controls</div>
+
+<!-- Socket.IO client loader -->
+<script>
+window.socketIoReady = new Promise((resolve,reject)=>{
+ const sources=[
+  "https://cdn.socket.io/4.8.1/socket.io.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js"
+ ];
+
+ function loadSource(index){
+  if(index>=sources.length){
+   reject(new Error("Socket.IO CDN could not load"));
+   return;
+  }
+
+  const script=document.createElement("script");
+  script.src=sources[index];
+  script.async=true;
+
+  script.onload=()=>{
+   if(typeof window.io==="function")resolve(window.io);
+   else{
+    script.remove();
+    loadSource(index+1);
+   }
+  };
+
+  script.onerror=()=>{
+   script.remove();
+   loadSource(index+1);
+  };
+
+  document.head.appendChild(script);
+ }
+
+ loadSource(0);
 });
+</script>
 
-const players = new Map();
+<script type="module">
+const SERVER_URL="https://streetworld-server.onrender.com";
 
-app.get("/", (req, res) => {
-  res.send("StreetWorld multiplayer server is running!");
-});
+const $=id=>document.getElementById(id);
 
-io.on("connection", socket => {
-  socket.on("joinWorld", data => {
-    const player = {
-      id: socket.id,
-      name: String(data?.name || "Driver").slice(0, 16),
-      x: 0,
-      z: 0,
-      rot: 0,
-      color: Math.floor(Math.random() * 0xffffff)
-    };
+let THREE;
+let scene,camera,renderer,car;
+let socket=null;
+let joined=false;
+let speed=0;
+let gas=false,braking=false,left=false,right=false;
+let lastUpdate=0;
 
-    players.set(socket.id, player);
+const keys={};
+const otherPlayers=new Map();
 
-    socket.emit(
-      "players",
-      [...players.values()].filter(p => p.id !== socket.id)
-    );
+function status(message){
+ $("status").textContent=message;
+}
 
-    socket.broadcast.emit("playerJoined", player);
+function error(message){
+ $("err").textContent=message;
+}
+
+function material(color){
+ return new THREE.MeshStandardMaterial({color,roughness:.8});
+}
+
+function box(parent,x,y,z,sx,sy,sz,color){
+ const mesh=new THREE.Mesh(
+  new THREE.BoxGeometry(sx,sy,sz),
+  material(color)
+ );
+ mesh.position.set(x,y,z);
+ parent.add(mesh);
+ return mesh;
+}
+
+function makeCar(color=0xff3030){
+ const group=new THREE.Group();
+
+ box(group,0,.55,0,1.8,.55,3.4,color);
+ box(group,0,1,-.25,1.5,.65,1.65,0x26364a);
+
+ const glass=new THREE.Mesh(
+  new THREE.BoxGeometry(1.38,.48,1.5),
+  new THREE.MeshStandardMaterial({color:0x75bde8,roughness:.2})
+ );
+ glass.position.set(0,1.06,-.25);
+ group.add(glass);
+
+ for(const x of [-.95,.95]){
+  for(const z of [-1.05,1.05]){
+   const wheel=new THREE.Mesh(
+    new THREE.CylinderGeometry(.39,.39,.22,16),
+    material(0x151515)
+   );
+   wheel.rotation.z=Math.PI/2;
+   wheel.position.set(x,.38,z);
+   group.add(wheel);
+  }
+ }
+
+ box(group,-.58,.63,1.72,.35,.2,.08,0xffffcc);
+ box(group,.58,.63,1.72,.35,.2,.08,0xffffcc);
+
+ return group;
+}
+
+function createWorld(){
+ scene=new THREE.Scene();
+ scene.background=new THREE.Color(0x8dc7ed);
+ scene.fog=new THREE.Fog(0x8dc7ed,100,500);
+
+ camera=new THREE.PerspectiveCamera(
+  70,innerWidth/innerHeight,.1,1000
+ );
+
+ renderer=new THREE.WebGLRenderer({antialias:true});
+ renderer.setSize(innerWidth,innerHeight);
+ renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+ renderer.shadowMap.enabled=true;
+ $("game").appendChild(renderer.domElement);
+
+ scene.add(new THREE.HemisphereLight(0xffffff,0x506040,2));
+
+ const sun=new THREE.DirectionalLight(0xffffff,2);
+ sun.position.set(80,120,50);
+ sun.castShadow=true;
+ scene.add(sun);
+
+ const ground=new THREE.Mesh(
+  new THREE.PlaneGeometry(1000,1000),
+  material(0x47834b)
+ );
+ ground.rotation.x=-Math.PI/2;
+ ground.position.y=-.08;
+ scene.add(ground);
+
+ // Main road
+ box(scene,0,0,0,16,.08,1000,0x34383d);
+
+ for(let z=-490;z<500;z+=12){
+  box(scene,0,.06,z,.25,.02,6,0xffffff);
+ }
+
+ // Side roads
+ box(scene,80,0,0,12,.08,1000,0x34383d);
+ box(scene,-80,0,0,12,.08,1000,0x34383d);
+
+ // Buildings
+ for(let i=0;i<120;i++){
+  const side=Math.random()<.5?-1:1;
+  const x=side*(20+Math.random()*100);
+  const z=Math.random()*900-450;
+  const h=8+Math.random()*35;
+  const w=8+Math.random()*16;
+  const d=8+Math.random()*18;
+  const colors=[0x9b9b9b,0xb5a18a,0x777f8a,0xc5c1b7,0x8b9b9d];
+
+  box(scene,x,h/2,z,w,h,d,
+   colors[Math.floor(Math.random()*colors.length)]);
+ }
+
+ // Trees
+ for(let i=0;i<180;i++){
+  const x=(Math.random()<.5?-1:1)*(12+Math.random()*160);
+  const z=Math.random()*950-475;
+
+  const trunk=new THREE.Mesh(
+   new THREE.CylinderGeometry(.3,.4,3,8),
+   material(0x654321)
+  );
+  trunk.position.set(x,1.5,z);
+  scene.add(trunk);
+
+  const leaves=new THREE.Mesh(
+   new THREE.SphereGeometry(2.2,8,8),
+   material(0x176b35)
+  );
+  leaves.position.set(x,4,z);
+  scene.add(leaves);
+ }
+
+ car=makeCar();
+ scene.add(car);
+
+ camera.position.set(0,6,-11);
+ camera.lookAt(car.position);
+
+ addEventListener("resize",resize);
+ animate();
+}
+
+function resize(){
+ if(!camera||!renderer)return;
+ camera.aspect=innerWidth/innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+}
+
+function animate(){
+ requestAnimationFrame(animate);
+
+ if(car){
+  const steering=(right||keys.ArrowRight||keys.d?1:0)
+   -(left||keys.ArrowLeft||keys.a?1:0);
+
+  const forward=gas||keys.ArrowUp||keys.w;
+  const reverse=braking||keys.ArrowDown||keys.s;
+
+  if(forward)speed=Math.min(speed+.12,1.7);
+  else if(reverse)speed=Math.max(speed-.18,-.65);
+  else speed*=.985;
+
+  if(Math.abs(speed)>.02){
+   car.rotation.y+=steering*.035*(speed>0?1:-1);
+  }
+
+  car.position.x+=Math.sin(car.rotation.y)*speed;
+  car.position.z+=Math.cos(car.rotation.y)*speed;
+
+  $("speed").textContent=Math.round(Math.abs(speed)*75)+" km/h";
+
+  const target=new THREE.Vector3(
+   car.position.x-Math.sin(car.rotation.y)*10,
+   car.position.y+6,
+   car.position.z-Math.cos(car.rotation.y)*10
+  );
+
+  camera.position.lerp(target,.09);
+  camera.lookAt(car.position.x,car.position.y+1,car.position.z);
+
+  if(joined&&socket?.connected&&performance.now()-lastUpdate>80){
+   lastUpdate=performance.now();
+   socket.emit("move",{
+    x:car.position.x,
+    z:car.position.z,
+    rot:car.rotation.y
+   });
+  }
+ }
+
+ renderer.render(scene,camera);
+}
+
+function updatePlayerCount(){
+ $("players").textContent="Players: "+(1+otherPlayers.size);
+}
+
+function addPlayer(p){
+ if(!p?.id||otherPlayers.has(p.id))return;
+
+ const playerCar=makeCar(p.color||0x3388ff);
+ playerCar.position.set(Number(p.x)||0,0,Number(p.z)||0);
+ playerCar.rotation.y=Number(p.rot)||0;
+ scene.add(playerCar);
+
+ otherPlayers.set(p.id,playerCar);
+ updatePlayerCount();
+}
+
+function movePlayer(p){
+ if(!p?.id)return;
+
+ if(!otherPlayers.has(p.id))addPlayer(p);
+
+ const playerCar=otherPlayers.get(p.id);
+ if(!playerCar)return;
+
+ playerCar.position.x=Number(p.x)||0;
+ playerCar.position.z=Number(p.z)||0;
+ playerCar.rotation.y=Number(p.rot)||0;
+}
+
+function removePlayer(id){
+ const playerCar=otherPlayers.get(id);
+ if(!playerCar)return;
+
+ scene.remove(playerCar);
+ otherPlayers.delete(id);
+ updatePlayerCount();
+}
+
+async function joinWorld(){
+ if(joined)return;
+
+ $("join").disabled=true;
+ error("Loading multiplayer library...");
+ status("Loading...");
+
+ let ioFunction;
+
+ try{
+  ioFunction=await window.socketIoReady;
+ }catch(e){
+  $("join").disabled=false;
+  status("Offline");
+  error("Socket.IO failed to load. Refresh or try another network.");
+  console.error(e);
+  return;
+ }
+
+ error("Connecting to StreetWorld server...");
+ status("Connecting...");
+
+ socket=ioFunction(SERVER_URL,{
+  transports:["websocket","polling"],
+  reconnection:true,
+  timeout:20000
+ });
+
+ socket.on("connect",()=>{
+  joined=true;
+  status("Connected");
+  error("");
+
+  $("menu").style.display="none";
+  $("controls").style.display="flex";
+  $("leave").style.display="block";
+
+  socket.emit("joinWorld",{
+   name:$("playerName").value.trim()||"Driver"
   });
+ });
 
-  socket.on("move", data => {
-    const player = players.get(socket.id);
-    if (!player || !data) return;
+ socket.on("connect_error",e=>{
+  status("Connection failed");
+  error("Server error: "+e.message);
+  $("join").disabled=false;
+  console.error(e);
+ });
 
-    const x = Number(data.x);
-    const z = Number(data.z);
-    const rot = Number(data.rot);
+ socket.on("players",list=>{
+  if(Array.isArray(list))list.forEach(addPlayer);
+ });
 
-    if (![x, z, rot].every(Number.isFinite)) return;
+ socket.on("playerJoined",addPlayer);
+ socket.on("playerMoved",movePlayer);
+ socket.on("playerLeft",removePlayer);
 
-    player.x = x;
-    player.z = z;
-    player.rot = rot;
+ socket.on("disconnect",()=>{
+  joined=false;
+  status("Disconnected");
+  $("controls").style.display="none";
+  $("leave").style.display="none";
+  $("menu").style.display="flex";
+  $("join").disabled=false;
 
-    socket.broadcast.emit("playerMoved", player);
-  });
+  for(const id of [...otherPlayers.keys()])removePlayer(id);
+ });
+}
 
-  socket.on("disconnect", () => {
-    players.delete(socket.id);
-    socket.broadcast.emit("playerLeft", socket.id);
-  });
-});
+function leaveWorld(){
+ if(socket){
+  socket.disconnect();
+  socket=null;
+ }
 
-const PORT = process.env.PORT || 3000;
+ joined=false;
+ $("menu").style.display="flex";
+ $("controls").style.display="none";
+ $("leave").style.display="none";
+ $("join").disabled=false;
+ status("Not connected");
+}
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log("StreetWorld server running on port " + PORT);
-});
+$("join").addEventListener("click",joinWorld);
+$("leave").addEventListener("click",leaveWorld);
+
+addEventListener("keydown",e=>{keys[e.key]=true});
+addEventListener("keyup",e=>{keys[e.key]=false});
+
+function holdButton(id,callback){
+ const el=$(id);
+ el.addEventListener("pointerdown",e=>{
+  e.preventDefault();
+  callback(true);
+ });
+ el.addEventListener("pointerup",()=>callback(false));
+ el.addEventListener("pointerleave",()=>callback(false));
+ el.addEventListener("pointercancel",()=>callback(false));
+}
+
+holdButton("gas",v=>gas=v);
+holdButton("brake",v=>braking=v);
+holdButton("left",v=>left=v);
+holdButton("right",v=>right=v);
+
+async function loadThree(){
+ const sources=[
+  "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "https://esm.sh/three@0.160.0",
+  "https://unpkg.com/three@0.160.0/build/three.module.js"
+ ];
+
+ for(const url of sources){
+  try{
+   return await import(url);
+  }catch(e){
+   console.warn("Three.js source failed:",url,e);
+  }
+ }
+
+ throw new Error("3D engine failed to load. Check your internet connection.");
+}
+
+try{
+ THREE=await loadThree();
+ createWorld();
+ status("Ready to drive");
+}catch(e){
+ error(e.message);
+ console.error(e);
+}
+</script>
+</body>
+</html>
